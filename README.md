@@ -1,1 +1,0 @@
-Non-equilibrium ionization modeling of CMEs observed by UVCS

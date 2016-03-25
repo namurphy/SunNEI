@@ -52,23 +52,26 @@ def track_plasma(
 
     i = 1
     while (i < max_steps+1):
-
+        
         timestep = find_timestep()
         time[i] = time[i-1]+timestep
         
         i = i + 1
-
-
-
-    print(time)
+        
+                
+#    print(time)
 
     return inputs
     
 def find_timestep():
     return 1.0
 
-def find_velocity(time):
-    return 1.0
+def find_velocity(time, Vfinal, scaletime, velocity_model):
+    
+    
+
+
+    return Vfinal*(1.0 - np.exp(time/scaletime))
 
 def find_density(log_initial_density,
                  log_final_density,

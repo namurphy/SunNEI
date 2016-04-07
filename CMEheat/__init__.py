@@ -3,7 +3,10 @@
 CMEheat
 =====
 
-A module to investigate plasma heating during CMEs
+This module contains non-equilibrium ionization routines to
+investigate the heating of coronal mass ejection (CME) plasma.
+
+The primary developers are Nick Murphy and Chengcai Shen.
 """
 
 import numpy as np
@@ -11,7 +14,6 @@ import pandas as pd
 
 # This pandas series allows a shortcut to finding the atomic number of
 # an element.  For example, all_elements['Fe'] will return 26.
-
 
 def track_plasma(
                  initial_height       = 0.1,     # in solar radii
@@ -28,13 +30,13 @@ def track_plasma(
                              'Ar', 'Ca', 'Fe', ] 
                  ):
     '''
-    Inputs
+    
     '''
 
 #    import numpy as np
 #    import pandas as pd
 
-    atomdata = create_atomic_dataframe(elements, '...')
+    atomdata = read_atomic_data(elements, '...')
 
     # Create a structure of some sort to store inputs and outputs
     #  - What should this structure be?
@@ -94,9 +96,23 @@ def find_density(log_initial_density,
 
 
 
-def create_atomic_dataframe(elements, data_directory):
+def read_atomic_data(elements, data_directory, screen_output=True):
+    '''
+    This routine reads in the atomic data
+
+ 
+    Instructions for generating atomic data files
+    =============================================
+
+    The atomic data was generated from version 8 of the Chianti
+    database using 
+    '''
+
+    if screen_output:
+        print('read_atomic_data: beginning program')
     
     import pandas as pd
+    from scipy.io import FortranFile
 
     all_elements = pd.Series(np.arange(28)+1,
                          index=['H' ,'He',
@@ -106,17 +122,31 @@ def create_atomic_dataframe(elements, data_directory):
                                 ])
 
 
-    from scipy.io import FortranFile
-    print('Running create_atomic_dataframe')
-
     data_directory = '/media/Backscratch/Users/namurphy/Projects/time_dependent_fortran/sswidl_read_chianti'
 
-#    print(len(elements))
+    '''
+    Begin a loop to read in the atomic data files needed for the
+    non-equilibrium ionization modeling.  The information will be
+    stored in the atomic_data dictionary.  
 
-    list_of_dataframes = []
+    For the first element in the loop, the information that should be
+    the same for each element will be stored at the top level of the
+    dictionary.  This includes the temperature grid, the number of
+    temperatures, and the number of elements.  
 
+    For all elements, read in and store the arrays containing the
+    equilibrium state, the eigenvalues, the eigenvectors, and the
+    eigenvector inverses.
+    '''
+
+    atomic_data = {}
+    
+    first_element_in_loop = True
 
     for element in elements:
+
+        if screen_output:
+            print('read_atomic_data: '+element)
 
         AtomicNumber = all_elements[element]
         nstates = AtomicNumber + 1
@@ -124,6 +154,7 @@ def create_atomic_dataframe(elements, data_directory):
         filename = data_directory + '/' + element.lower() + 'eigen.dat'
         H = FortranFile(filename, 'r')
 
+        # The number of temperature levels and the number of elements used in the 
         nte, nelems = H.read_ints(np.int32)
         temperatures = H.read_reals(np.float64)
         equistate = H.read_reals(np.float64).reshape((nte,nstates))
@@ -133,18 +164,32 @@ def create_atomic_dataframe(elements, data_directory):
         c_rate = H.read_reals(np.float64).reshape((nte,nstates))
         r_rate = H.read_reals(np.float64).reshape((nte,nstates))      
         
-        # Store it in a pandas DataFrame
+        # Store 
 
-        DF = pd.DataFrame({AtomicNumber,
-                           equistate,
-                           },index=['AtomicNumber','equistate'])
+        if first_element_in_loop:
+            atomic_data['nte'] = nte
+            atomic_data['nelems'] = nelems  # Probably not used
+            atomic_data['temperatures'] = temperatures
+            first_element_in_loop = False
+        else:
+            assert nte == atomic_data['nte'], 'Atomic data files have different number of temperature levels: '+element
+            assert nelems == atomic_data['nelems'], 'Atomic data files have different number of elements: '+element
+            assert np.allclose(atomic_data['temperatures'],temperatures), 'Atomic data files have different temperature bins'
 
-#        list_of_dataframes.append(DF)
-
-        # Add the DataFrame to the list_of_stuff
-
-        print(DF)
-
-    # Change the list of stuff into a DataFrame
+        # Add the atomic data for this element to the dictionary
+        
+        atomic_data[element] = {'element':element,
+                                'equistate':equistate,
+                                'eigenvalues':eigenvalues,
+                                'eigenvector':eigenvector,
+                                'eigenvector_inv':eigenvector_inv,
+                                'ionization_rate':c_rate,
+                                'recombination_rate':r_rate,
+                                }
+        
     
-    
+    if screen_output:
+        print('read_atomic_data: '+str(len(elements))+' elements read in')
+        print('read_atomic_data: complete')
+
+    return atomic_data

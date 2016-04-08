@@ -1,11 +1,8 @@
-
 """
 CMEheat
 =====
-
 This module contains non-equilibrium ionization routines to
 investigate the heating of coronal mass ejection (CME) plasma.
-
 The primary developers are Nick Murphy and Chengcai Shen.
 """
 
@@ -107,7 +104,6 @@ def read_atomic_data(elements,
     '''
     This routine reads in the atomic data to be used for the
     non-equilibrium ionization calculations.
-
  
     Instructions for generating atomic data files
     =============================================
@@ -126,13 +122,11 @@ def read_atomic_data(elements,
     ionization and recombination rates as a function of temperature.
     This routine requires the atomic database Chianti to be installed
     in IDL.
-
     Second, compile the Fortran routine 'create_eigenvmatrix.f90'.
     With the Intel mkl libraries it is compiled as: "ifort -mkl
     create_eigenvmatrix.f90 -o create.out" which can then be run with
     the command "./create.out".  This routine outputs all the
     eigenvalue tables for the first 28 elements (H to Ni).
-
     As of 2016 April 7, data from Chianti 8 is included in the
     CMEheat/AtomicData subdirectory.
     '''
@@ -147,12 +141,10 @@ def read_atomic_data(elements,
     Begin a loop to read in the atomic data files needed for the
     non-equilibrium ionization modeling.  The information will be
     stored in the atomic_data dictionary.
-
     For the first element in the loop, the information that should be
     the same for each element will be stored at the top level of the
     dictionary.  This includes the temperature grid, the number of
     temperatures, and the number of elements.
-
     For all elements, read in and store the arrays containing the
     equilibrium state, the eigenvalues, the eigenvectors, and the
     eigenvector inverses.

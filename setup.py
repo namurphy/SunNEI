@@ -1,12 +1,14 @@
-from setuptools import setup
+#!/usr/bin/env python
 
-setup(name="CMEheat",
-      version="0.0",
-      description="Python package for non-equilibrium ionization modeling of coronal mass ejections",
-      url="https://github.com/",
+from distutils.core import setup
+
+setup(name="NEI",
+      version="0.01",
+      description="Non-equilibrium ionization modeling package",
+      url="https://github.com/namurphy/CMEheat",
       author="Nick Murphy and Chengcai Shen",
       author_email="namurphy@cfa.harvard.edu",
-      license="BSD",
-      packages=["CMEheat"],
+      license="MIT",
+      packages=["NEI"],
       zip_safe=False,
       )

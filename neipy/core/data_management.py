@@ -1,15 +1,5 @@
-"""
-NEI
-===
-This module contains the core non-equilibrium ionization routines to
-model astrophysical plasmas.
-"""
-
 import numpy as np
 import pandas as pd
-
-# This pandas series allows a shortcut to finding the atomic number of
-# an element.  For example, all_elements['Fe'] will return 26.
 
 all_elements = pd.Series(np.arange(28)+1,
                          index=['H' ,'He',
@@ -19,7 +9,7 @@ all_elements = pd.Series(np.arange(28)+1,
                                 ])
 
 def read_atomic_data(elements, 
-                     data_directory='/media/Backscratch/Users/namurphy/Projects/time_dependent_fortran/sswidl_read_chianti', 
+                     data_directory='../AtomicData/', 
                      screen_output=False):
 
     '''
@@ -124,7 +114,4 @@ def read_atomic_data(elements,
         print('read_atomic_data: complete')
 
     return atomic_data
-
-
-
 

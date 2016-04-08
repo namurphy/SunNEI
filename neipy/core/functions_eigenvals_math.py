@@ -26,6 +26,11 @@ eigenvector_invers = f.read_reals(dtype=np.float64).reshape((natom+1, natom+1, n
 # Close file
 f.close()
 
+
+# Note from Nick: I copied the next three routines to time_advance.py
+# but am leaving these also here for now.
+
+
 #------------------------------------------------------------------------------
 # function: Find te node on the Te table
 #------------------------------------------------------------------------------

@@ -10,5 +10,4 @@ setup(name="NEI",
       author_email="namurphy@cfa.harvard.edu",
       license="MIT",
       packages=["NEI"],
-      zip_safe=False,
       )

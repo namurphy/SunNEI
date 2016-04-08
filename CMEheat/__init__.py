@@ -41,9 +41,6 @@ def track_plasma(
     
     '''
 
-#    import numpy as np
-#    import pandas as pd
-
     atomdata = read_atomic_data(elements, screen_output=True)
 
     # Create a structure of some sort to store inputs and outputs
@@ -86,7 +83,7 @@ def track_plasma(
     return inputs
 
 
-    
+
 def find_timestep():
     return 1.0
 

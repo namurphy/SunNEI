@@ -44,7 +44,7 @@ def track_plasma(
 #    import numpy as np
 #    import pandas as pd
 
-    atomdata = read_atomic_data(elements, '...', screen_output=True)
+    atomdata = read_atomic_data(elements, screen_output=True)
 
     # Create a structure of some sort to store inputs and outputs
     #  - What should this structure be?
@@ -196,6 +196,8 @@ def read_atomic_data(elements,
             assert np.allclose(atomic_data['temperatures'],temperatures), 'Atomic data files have different temperature bins'
 
         atomic_data[element] = {'element':element,
+                                'AtomicNumber':AtomicNumber,
+                                'nstates':nstates,
                                 'equistate':equistate,
                                 'eigenvalues':eigenvalues,
                                 'eigenvector':eigenvector,

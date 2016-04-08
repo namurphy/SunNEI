@@ -3,7 +3,7 @@
 from distutils.core import setup
 
 setup(name="NEI",
-      version="0.01",
+      version="0.0.dev",
       description="Non-equilibrium ionization modeling package",
       url="https://github.com/namurphy/CMEheat",
       author="Nick Murphy and Chengcai Shen",

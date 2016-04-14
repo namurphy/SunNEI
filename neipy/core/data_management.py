@@ -120,3 +120,22 @@ def read_atomic_data(elements=['H', 'He', 'C',     # twelve most abundant elemen
 
     return atomic_data
 
+def create_ChargeStates_dictionary(elements):
+    '''
+    Create a python dictionary that has a zeroed out ndarray of size
+    AtomicNumber+1 for each element in the list 'elements'.
+    
+    To create a list of these dictionaries, one example is
+    
+    ChargeStatesOverTime = [ChargeStates, ChargeStates]
+    
+    ChargeStatesOverTime.append(ChargeStates)
+
+    Also need a time ndarray
+    '''
+    ChargeStates = {}
+
+    for element in elements:
+        ChargeStates[element] = np.zeros(all_elements[element]+1)
+
+    return ChargeStates

@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import os
 
 all_elements = pd.Series(np.arange(28)+1,
                          index=['H' ,'He',
@@ -8,8 +9,12 @@ all_elements = pd.Series(np.arange(28)+1,
                                 'K' ,'Ca','Sc','Ti','V' ,'Cr','Mn','Fe','Co','Ni',
                                 ])
 
-def read_atomic_data(elements, 
-                     data_directory='../AtomicData/', 
+def read_atomic_data(elements=['H', 'He', 'C',     # twelve most abundant elements
+                               'N', 'O', 'Ne',
+                               'Mg', 'Si', 'S', 
+                               'Ar', 'Ca', 'Fe', ] , 
+#                     data_directory= __path__ + '/AtomicData', 
+                     data_directory= 'neipy/AtomicData',   # not robust!  Works when calling from the directory that neipy is in
                      screen_output=False):
 
     '''

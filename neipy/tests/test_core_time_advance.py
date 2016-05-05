@@ -19,12 +19,16 @@ import matplotlib.pyplot as plt
 #------------------------------------------------------------------------------
 AtomicData = neipy.read_atomic_data(screen_output=True)
 
-
+# Define the plasma parameters
 element = 'O'
 natom = AtomicData[element]['nstates'] - 1
+te_ini = 4.0e+4
 te0 = 2.0e+6
 ne0 = 1.0e+7
 
+# Create a dictionary to save results
+ChargeStateDic = neipy.create_ChargeStates_dictionary(['He', 'O', 'Fe'])
+#ChargeStateTime = [ChargeStateDic]
 
 #------------------------------------------------------------------------------
 # Tests
@@ -32,16 +36,13 @@ ne0 = 1.0e+7
 # Initial conditions, set plasma temperature, density and dt
 print('************************************')
 print('TEST: chemical element =', element)
-te0 = 1.0e+6
-te_ini = 4.0e+4
-ne0 = 1.0e+7
 
 # Start from any ionizaiont states, e.g., Te = 4.0d4 K,
 time = 0
 ind = neipy.core.func_index_te(te_ini, AtomicData['temperatures'])
 f0 = AtomicData[element]['equistate'][ind,:]
-ChargeStateOverTime = neipy.create_ChargeStates_dictionary([element])
-ChargeStateOverTime['He'] = f0
+ChargeStateDic[element] = f0
+#ChargeStateTime[0][element][:] = f0[:]
 
 print('START-------------------------------')
 print('time_sta = ', time)
@@ -49,16 +50,19 @@ print(f0)
 print('Sum(f0) = ', np.sum(f0))
 
 # After time + dt:
-dt = 1.0e+2
-#ft = neipy.core.func_solver_eigenval(element, AtomicData, te0, ne0, dt, f0)
+dt = 5.0e+4
 
 i = 0
 while (i < 20):
-   #print('i = ', i)
-   ft = neipy.core.func_solver_eigenval(element, AtomicData, te0, ne0, dt, f0)
-   ChargeStateOverTime[element]=np.vstack((ChargeStateOverTime[element], ft))
-   f0 = ft
-   i = i + 1
+    i = i+1
+    
+    ft = neipy.core.func_solver_eigenval(element, AtomicData, te0, ne0, dt, f0)
+    f0 = ft
+
+    # save ractions 
+    ChargeStateDic[element]=np.vstack((ChargeStateDic[element], ft))
+    #ChargeStateTime.append(ChargeStateDic)
+    #ChargeStateTime[i][element][:] = ft[:]
 
 print('END---------------------------------')
 print('time_end = ', time+i*dt)
@@ -76,14 +80,15 @@ print('************************************')
 ionistate = np.arange(1, natom+1+1, 1)
 i = 0
 while (i < 20):
-   plt.plot(ionistate, ChargeStateOverTime[element][i, :]) 
-   #print(ChargeStateOverTime[element][i, :])
-   i = i + 1
+    plt.plot(ionistate, ChargeStateDic[element][i, :]) 
+    i = i + 1
 plt.ylabel('Ion fraction')
 plt.yscale('log')
 plt.ylim(1.0e-06,1.0)
 plt.xlabel('Ionization states')
-plt.show()
+#plt.show()
+plt.savefig('test_core_timeadvance.eps', format='eps', dpi=120)
+print("Test: normal stop!")
 
 
 

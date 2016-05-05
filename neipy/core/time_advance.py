@@ -49,21 +49,41 @@ def func_dt_eigenval(te, ne):
 #------------------------------------------------------------------------------
 # function: Time-Advance: solover
 #------------------------------------------------------------------------------
-def func_solver_eigenval(natom, te, ne, dt, f0):
-    ind = func_index_te(te, te_arr) # index of node in temperature table
+# Update
+#   2016-05-03, by Chengcai.
+#   Replace input parameter 'natom' by 'element'. 
+#   Add a argument 'AtomicData',  which is a panda structure, created by 
+#   using neipy.read_atomic_data.
+#
+def func_solver_eigenval(element, AtomicData, te, ne, dt, f0):
 
-    evals = eigenvals[:,ind] # find eigenvalues on the chosen Te node
-    evect = eigenvector[:,:,ind]
-    evect_invers = eigenvector_invers[:,:,ind]
+    nstates = AtomicData[element]['nstates']
+    natom = nstates - 1
+    
+    #ind = func_index_te(te, te_arr) # index of node in temperature table
+    ind = func_index_te(te, AtomicData['temperatures'])
+
+    #find eigenvalues on the chosen Te node
+    evals = AtomicData[element]['eigenvalues'][ind,:]
+    
+    # eigen vectors
+    evect_0 = AtomicData[element]['eigenvector'][ind,:,:]
+    evect_1 = np.reshape(evect_0, (nstates*nstates))
+    evect = np.reshape(evect_1, (nstates, nstates), order='F')
+    
+    # eigenvector_invers
+    evect_inv_0 = AtomicData[element]['eigenvector_inv'][ind,:,:]
+    evect_inv_1 = np.reshape(evect_inv_0, (nstates*nstates))
+    evect_inv = np.reshape(evect_inv_1, (nstates, nstates), order='F')
 
     # define the temperary diagonal matrix
-    diagona_evals = np.zeros((natom+1, natom+1))
+    diagona_evals = np.zeros((nstates, nstates))
     for ii in np.arange(0, natom+1, dtype=np.int):
         diagona_evals[ii,ii] = np.exp(evals[ii]*dt*ne)
 
     # matirx operation
     matrix_1 = np.dot(diagona_evals, evect)
-    matrix_2 = np.dot(evect_invers, matrix_1)
+    matrix_2 = np.dot(evect_inv, matrix_1)
 
     # get ions fraction at (time+dt)
     ft = np.dot(f0, matrix_2)

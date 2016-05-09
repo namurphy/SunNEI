@@ -1,12 +1,22 @@
-from neipy import read_atomic_data
+from neipy import read_atomic_data, create_ChargeStates_dictionary
 
 def test_read_atomic_data():
-    print()
     print("Running test_read_atomic_data")
-    print()
-
     AtomicData = read_atomic_data(screen_output=True)
-
-    print()
     print("Completed test_read_atomic_data")
-    print()
+
+def test_create_ChargeStates_dictionary():
+
+    elements = ['H', 'He', 'Fe']
+
+    AtomicData = read_atomic_data(elements)
+
+    CSD = create_ChargeStates_dictionary(elements, 2.5879e8, AtomicData)
+
+    for element in elements:
+        print()
+        print(element+':')
+        print(CSD[element])
+
+    
+    

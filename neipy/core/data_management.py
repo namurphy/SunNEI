@@ -120,22 +120,68 @@ def read_atomic_data(elements=['H', 'He', 'C',     # twelve most abundant elemen
 
     return atomic_data
 
-def create_ChargeStates_dictionary(elements):
+def create_ChargeStates_dictionary(elements, 
+                                   temperature=0, 
+                                   AtomicData=None):
     '''
-    Create a python dictionary that has a zeroed out ndarray of size
-    AtomicNumber+1 for each element in the list 'elements'.
-    
-    To create a list of these dictionaries, one example is
-    
-    ChargeStatesOverTime = [ChargeStates, ChargeStates]
-    
-    ChargeStatesOverTime.append(ChargeStates)
+    Create a dictionary that contains the initial charge state
+    distributions for the chosen elements.
 
-    Also need a time ndarray
+    If the temperature is not specified as an input, then this
+    function will assume that every element is completely neutral.
+
+    If the temperature is specified, then each charge state will be
+    initialized with the equilibrium ionization charge states for that
+    temperature.
+
+    The AtomicData dictionary may be optionally included as the third
+    argument so that it is not necessary to read it in more than once.
+    If AtomicData is not an input, then it will be read in.
+
+    For each element, ChargeStates[element] records the ionization
+    fraction for each ionization state.
+
+    ChargeStates[element][0] --> fraction that is neutral
+    ChargeStates[element][1] --> fraction that is singly ionized
+    ChargeStates[element][2] --> fraction that is doubly ionized
+
+    ChargeStates['H'] = [1.0, 0.0] <-- completely neutral    
+    ChargeStates['H'] = [0.0, 1.0] <-- fully ionized 
+    
+    ChargeStates['He'] = [1.0, 0.0, 0.0] <-- completely neutral
+    ChargeStates['He'] = [0.0, 1.0, 0.0] <-- all singly ionized
+    ChargeStates['He'] = [0.0, 0.0, 1.0] <-- fully ionized
+
+    The sum of the charge states for a particular element should equal
+    one (to within roundoff or numerical error).  
     '''
+
+    from .time_advance import func_index_te
+
     ChargeStates = {}
+    
+    # Initialize the charge state distribution for each element by
+    # assuming it is entirely neutral
 
     for element in elements:
         ChargeStates[element] = np.zeros(all_elements[element]+1)
+        ChargeStates[element][0]=1
+    
+    # If the temperature is specified, then 
+
+    if temperature>0: 
+        if AtomicData == None:
+            AtomicData = read_atomic_data(elements)
+        TemperatureIndex = func_index_te(temperature, AtomicData['temperatures'])
+        for element in elements:
+            AtomicNumber = all_elements[element]
+            ChargeStates[element] = AtomicData[element]['equistate'][TemperatureIndex]
+
+    # Test that the charge state distribution for each element sums to one
+
+    tol = 1e-9
+    for element in elements:
+        val = np.sum(ChargeStates[element])
+        assert (val>1-tol) & (val<1+tol), 'Initial charge states do not sum to one for '+element
 
     return ChargeStates

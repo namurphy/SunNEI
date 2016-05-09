@@ -25,6 +25,8 @@ natom = AtomicData[element]['nstates'] - 1
 te_ini = 4.0e+4
 te0 = 2.0e+6
 ne0 = 1.0e+7
+te_list = [te0, te0]
+ne_list = [ne0, ne0*0.9]
 
 # Create a dictionary to save results
 ChargeStateDic = neipy.create_ChargeStates_dictionary(['He', 'O', 'Fe'])
@@ -50,13 +52,21 @@ print(f0)
 print('Sum(f0) = ', np.sum(f0))
 
 # After time + dt:
-dt = 5.0e+4
+dt_in = 5.0e+3
 
 i = 0
 while (i < 20):
     i = i+1
     
-    ft = neipy.core.func_solver_eigenval(element, AtomicData, te0, ne0, dt, f0)
+    dt = neipy.core.func_dt_eigenval(element, AtomicData, te_list, ne_list, dt_in)
+
+    nec = 0.5*(ne_list[0] + ne_list[1])
+    ft = neipy.core.func_solver_eigenval(element, AtomicData, te0, nec, dt, f0)
+    
+    # for the next step
+    ne_list[0] = ne_list[1]
+    ne_list[1] = ne_list[0]*0.9
+        
     f0 = ft
 
     # save ractions 

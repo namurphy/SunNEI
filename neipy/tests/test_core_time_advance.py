@@ -39,7 +39,7 @@ ChargeStateDic = neipy.create_ChargeStates_dictionary(['He', 'O', 'Fe'])
 print('************************************')
 print('TEST: chemical element =', element)
 
-# Start from any ionizaiont states, e.g., Te = 4.0d4 K,
+# Start from any ionization states, e.g., Te = 4.0d4 K,
 time = 0
 ind = neipy.core.func_index_te(te_ini, AtomicData['temperatures'])
 f0 = AtomicData[element]['equistate'][ind,:]
@@ -69,7 +69,7 @@ while (i < 20):
         
     f0 = ft
 
-    # save ractions 
+    # save fractions 
     ChargeStateDic[element]=np.vstack((ChargeStateDic[element], ft))
     #ChargeStateTime.append(ChargeStateDic)
     #ChargeStateTime[i][element][:] = ft[:]

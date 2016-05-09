@@ -1,8 +1,7 @@
 """
 NEI
 ===
-This module contains the core non-equilibrium ionization routines to
-model astrophysical plasmas.
+This module contains the core non-equilibrium ionization routines.
 """
 
 import numpy as np
@@ -75,12 +74,12 @@ def func_dt_eigenval(elements_arr, AtomicData, te_list, ne_list, dt_in):
     return dt_out
 
 #------------------------------------------------------------------------------
-# function: Time-Advance: solover
+# function: Time-Advance: solver
 #------------------------------------------------------------------------------
 # Update
 #   2016-05-03, by Chengcai.
 #   Replace input parameter 'natom' by 'element'. 
-#   Add a argument 'AtomicData',  which is a panda structure, created by 
+#   Add a argument 'AtomicData',  which is a dictionary, created by 
 #   using neipy.read_atomic_data.
 #
 def func_solver_eigenval(element, AtomicData, te, ne, dt, f0):
@@ -99,12 +98,12 @@ def func_solver_eigenval(element, AtomicData, te, ne, dt, f0):
     evect_1 = np.reshape(evect_0, (nstates*nstates))
     evect = np.reshape(evect_1, (nstates, nstates), order='F')
     
-    # eigenvector_invers
+    # eigenvector_inverse
     evect_inv_0 = AtomicData[element]['eigenvector_inv'][ind,:,:]
     evect_inv_1 = np.reshape(evect_inv_0, (nstates*nstates))
     evect_inv = np.reshape(evect_inv_1, (nstates, nstates), order='F')
 
-    # define the temperary diagonal matrix
+    # define the temporary diagonal matrix
     diagona_evals = np.zeros((nstates, nstates))
     for ii in np.arange(0, natom+1, dtype=np.int):
         diagona_evals[ii,ii] = np.exp(evals[ii]*dt*ne)
@@ -113,7 +112,7 @@ def func_solver_eigenval(element, AtomicData, te, ne, dt, f0):
     matrix_1 = np.dot(diagona_evals, evect)
     matrix_2 = np.dot(evect_inv, matrix_1)
 
-    # get ions fraction at (time+dt)
+    # get ionization fractions at (time+dt)
     ft = np.dot(f0, matrix_2)
 
     # re-check the smallest value

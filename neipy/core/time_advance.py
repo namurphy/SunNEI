@@ -38,11 +38,16 @@ def func_index_te(te, te_arr):
 #   Add the loop over all elements in the list 'elements_arr';
 #   Add the dt_te estimation.
 #
-def func_dt_eigenval(elements_arr, AtomicData, te_list, ne_list, dt_in):
-    change_perct = 1.0e-3
-    safety_factor = 0.40
-    dt_ne = 1.0e+5
-    dt_te = 1.0e+5
+def func_dt_eigenval(elements_arr, AtomicData, te_list, ne_list, dt_in, 
+                     change_perct=1.0e-3,
+                     safety_factor=0.40,
+                     dt_ne=1.0e5,
+                     dt_te=1.0e5,):
+
+#    change_perct = 1.0e-3 # how much charge states change to equilibrium case
+#    safety_factor = 0.40
+#    dt_ne = 1.0e+5
+#    dt_te = 1.0e+5
     
     ind_0 = func_index_te(te_list[0], AtomicData['temperatures'])
     ind_1 = func_index_te(te_list[1], AtomicData['temperatures'])
@@ -121,3 +126,16 @@ def func_solver_eigenval(element, AtomicData, te, ne, dt, f0):
         if (abs(ft[ii]) <= minconce):
             ft[ii] = 0.0
     return ft
+
+def time_advance(elements, AtomicData, te, ne, dt, ChargeStates_0):
+
+    # not tested yet!
+    # include this loop in func_solver_eigenval?
+
+    ChargeStates_1 = create_ChargeStates_dictionary(elements)
+
+    for element in elements:
+        ChargeStates_1[element] = func_solver_eigenval(element, AtomicData, te, ne, dt, 
+                                                       ChargeStates_0[element])
+    return ChargeStates_1
+        

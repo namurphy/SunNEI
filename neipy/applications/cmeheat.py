@@ -20,7 +20,7 @@ all_elements = pd.Series(np.arange(28)+1,
                                 ])
 
 
-def track_plasma(
+def cmeheat_track_plasma(
                  initial_height       = 0.1,     # in solar radii
                  log_initial_temp     = 6.0,     # K
                  log_initial_dens     = 9.6,     # cm^-3
@@ -38,7 +38,10 @@ def track_plasma(
     
     '''
 
-    atomdata = read_atomic_data(elements, screen_output=True)
+    # Initializations
+
+    AtomicData = read_atomic_data(elements, screen_output=False)
+    InitialChargeStates = 
 
     # Create a structure of some sort to store inputs and outputs
     #  - What should this structure be?
@@ -80,7 +83,7 @@ def track_plasma(
     return inputs
 
 
-def find_velocity(time, Vfinal, scaletime, velocity_model):
+def cmeheat_find_velocity(time, Vfinal, scaletime, velocity_model):
     return Vfinal*(1.0 - np.exp(time/scaletime))
 
 

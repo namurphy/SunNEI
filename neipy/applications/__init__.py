@@ -1,1 +1,1 @@
-from .CMEheat import track_plasma
+from .cmeheat import track_plasma

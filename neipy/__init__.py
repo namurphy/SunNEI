@@ -4,4 +4,4 @@ from .core import read_atomic_data, func_index_te, func_dt_eigenval, func_solver
 
 from .tests import test_read_atomic_data, test_create_ChargeStates_dictionary
 
-from .applications import track_plasma
+from .applications import cmeheat_track_plasma

@@ -70,8 +70,7 @@ def func_dt_eigenval(elements_arr, AtomicData, te_list, ne_list, dt_in,
             dt_est = change_perct/(eval_max*ne_list[itime])
             if dt_est <= dt_ne:
                 dt_ne = dt_est
-    
-    print("dt_te=",dt_te, "dt_ne=",dt_ne)
+
     # return dt_out
     dt_out = dt_te
     if dt_ne >= dt_te:
@@ -82,60 +81,119 @@ def func_dt_eigenval(elements_arr, AtomicData, te_list, ne_list, dt_in,
 # function: Time-Advance: solver
 #------------------------------------------------------------------------------
 # Update
-#   2016-05-03, by Chengcai.
+#   2016-05-03
 #   Replace input parameter 'natom' by 'element'. 
 #   Add a argument 'AtomicData',  which is a dictionary, created by 
 #   using neipy.read_atomic_data.
+#   2016-05-17
+#   Replace input parameter 'element' by 'elements'.
+#   Add a loop to over a element list.
+#   f0_dic and ft_dic are charge_state dictionary defined using funtion 
+#   neipy.create_ChargeStates_dictionary.
 #
-def func_solver_eigenval(element, AtomicData, te, ne, dt, f0):
-
-    nstates = AtomicData[element]['nstates']
-    natom = nstates - 1
+def func_solver_eigenval(elements, AtomicData, te, ne, dt, f0_dic):
     
-    #ind = func_index_te(te, te_arr) # index of node in temperature table
-    ind = func_index_te(te, AtomicData['temperatures'])
-
-    #find eigenvalues on the chosen Te node
-    evals = AtomicData[element]['eigenvalues'][ind,:]
-    
-    # eigen vectors
-    evect_0 = AtomicData[element]['eigenvector'][ind,:,:]
-    evect_1 = np.reshape(evect_0, (nstates*nstates))
-    evect = np.reshape(evect_1, (nstates, nstates), order='F')
-    
-    # eigenvector_inverse
-    evect_inv_0 = AtomicData[element]['eigenvector_inv'][ind,:,:]
-    evect_inv_1 = np.reshape(evect_inv_0, (nstates*nstates))
-    evect_inv = np.reshape(evect_inv_1, (nstates, nstates), order='F')
-
-    # define the temporary diagonal matrix
-    diagona_evals = np.zeros((nstates, nstates))
-    for ii in np.arange(0, natom+1, dtype=np.int):
-        diagona_evals[ii,ii] = np.exp(evals[ii]*dt*ne)
-
-    # matirx operation
-    matrix_1 = np.dot(diagona_evals, evect)
-    matrix_2 = np.dot(evect_inv, matrix_1)
-
-    # get ionization fractions at (time+dt)
-    ft = np.dot(f0, matrix_2)
-
-    # re-check the smallest value
-    minconce = 1.0e-15
-    for ii in np.arange(0, natom+1, dtype=np.int):
-        if (abs(ft[ii]) <= minconce):
-            ft[ii] = 0.0
-    return ft
-
-def time_advance(elements, AtomicData, te, ne, dt, ChargeStates_0):
-
-    # not tested yet!
-    # include this loop in func_solver_eigenval?
-
-    ChargeStates_1 = create_ChargeStates_dictionary(elements)
+    # copy a dictionary to save the advanced charge state. 
+    ft_dic = f0_dic
 
     for element in elements:
-        ChargeStates_1[element] = func_solver_eigenval(element, AtomicData, te, ne, dt, 
-                                                       ChargeStates_0[element])
-    return ChargeStates_1
-        
+        nstates = AtomicData[element]['nstates']
+        natom = nstates - 1
+    
+        #ind = func_index_te(te, te_arr) # index of node in temperature table
+        ind = func_index_te(te, AtomicData['temperatures'])
+
+        #find eigenvalues on the chosen Te node
+        evals = AtomicData[element]['eigenvalues'][ind,:]
+    
+        # eigen vectors
+        evect_0 = AtomicData[element]['eigenvector'][ind,:,:]
+        evect_1 = np.reshape(evect_0, (nstates*nstates))
+        evect = np.reshape(evect_1, (nstates, nstates), order='F')
+    
+        # eigenvector_invers
+        evect_inv_0 = AtomicData[element]['eigenvector_inv'][ind,:,:]
+        evect_inv_1 = np.reshape(evect_inv_0, (nstates*nstates))
+        evect_inv = np.reshape(evect_inv_1, (nstates, nstates), order='F')
+
+        # define the temperary diagonal matrix
+        diagona_evals = np.zeros((nstates, nstates))
+        for ii in np.arange(0, natom+1, dtype=np.int):
+            diagona_evals[ii,ii] = np.exp(evals[ii]*dt*ne)
+
+        # matirx operation
+        matrix_1 = np.dot(diagona_evals, evect)
+        matrix_2 = np.dot(evect_inv, matrix_1)
+
+        # get ions fraction at (time+dt)
+        f0 = f0_dic[element]
+        ft = np.dot(f0, matrix_2)
+
+        # re-check the smallest value
+        minconce = 1.0e-15
+        for ii in np.arange(0, natom+1, dtype=np.int):
+            if (abs(ft[ii]) <= minconce):
+                ft[ii] = 0.0
+        ft_dic[element] = ft        
+  return ft_dic
+
+
+#------------------------------------------------------------------------------
+# function: Time-Advance: solover
+#------------------------------------------------------------------------------
+# Update
+#   2016-05-03
+#   Replace input parameter 'natom' by 'element'. 
+#   Add a argument 'AtomicData',  which is a panda structure, created by 
+#   using neipy.read_atomic_data.
+#   2016-05-17
+#   Replace input parameter 'element' by 'elements'.
+#   Add a loop to over a element list.
+#   f0_dic and ft_dic are charge_state dictionary defined using funtion 
+#   neipy.create_ChargeStates_dictionary.
+#
+def func_solver_eigenval(elements, AtomicData, te, ne, dt, f0_dic):
+    
+    # copy a dictionary to save the advanced charge state. 
+    ft_dic = f0_dic
+
+    for element in elements:
+        nstates = AtomicData[element]['nstates']
+        natom = nstates - 1
+    
+        #ind = func_index_te(te, te_arr) # index of node in temperature table
+        ind = func_index_te(te, AtomicData['temperatures'])
+
+        #find eigenvalues on the chosen Te node
+        evals = AtomicData[element]['eigenvalues'][ind,:]
+    
+        # eigen vectors
+        evect_0 = AtomicData[element]['eigenvector'][ind,:,:]
+        evect_1 = np.reshape(evect_0, (nstates*nstates))
+        evect = np.reshape(evect_1, (nstates, nstates), order='F')
+    
+        # eigenvector_invers
+        evect_inv_0 = AtomicData[element]['eigenvector_inv'][ind,:,:]
+        evect_inv_1 = np.reshape(evect_inv_0, (nstates*nstates))
+        evect_inv = np.reshape(evect_inv_1, (nstates, nstates), order='F')
+
+        # define the temperary diagonal matrix
+        diagona_evals = np.zeros((nstates, nstates))
+        for ii in np.arange(0, natom+1, dtype=np.int):
+            diagona_evals[ii,ii] = np.exp(evals[ii]*dt*ne)
+
+        # matirx operation
+        matrix_1 = np.dot(diagona_evals, evect)
+        matrix_2 = np.dot(evect_inv, matrix_1)
+
+        # get ions fraction at (time+dt)
+        f0 = f0_dic[element]
+        ft = np.dot(f0, matrix_2)
+
+        # re-check the smallest value
+        minconce = 1.0e-15
+        for ii in np.arange(0, natom+1, dtype=np.int):
+            if (abs(ft[ii]) <= minconce):
+                ft[ii] = 0.0
+        ft_dic[element] = ft        
+  return ft_dic

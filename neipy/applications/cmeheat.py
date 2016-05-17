@@ -30,12 +30,11 @@ gamm1 = 0.666666666666667
 def cmeheat_track_plasma(
                  initial_height       = 0.1,     # in solar radii
                  log_initial_temp     = 6.0,     # K
-                 log_initial_dens     =12.0,     # number density in cm^-3
-                 log_final_dens    = 6.6,     #                 
+                 log_initial_dens     = 9.6,     # number density in cm^-3
+                 log_final_dens       = 6.6,     #                 
                  height_of_final_dens = 3.0,     # in solar radii
                  vfinal               = 500.0,   # km/s
                  vscaletime           = 3600.0,  # s
-#                 expansion_exponent   = 3.0,     # from 2.0 to 3.0
                  max_steps            = 25,     # maximum number of steps
                  output_heights       = [2.,3.], # heights to output charge states
                  elements = ['H', 'He', 'C',     # elements to be modeled
@@ -97,7 +96,7 @@ def cmeheat_track_plasma(
         
         # Determine the time step
 
-        timestep = 200.0  # need to update with better values
+        timestep = 200.0  # second, need to update this!!!!!!!!!!!
 
         time[i] = time[i-1] + timestep
 
@@ -118,13 +117,13 @@ def cmeheat_track_plasma(
         temperature[i] = temperature[i-1]*(density[i]/density[i-1])**gamm1
 
         # Ionization time advance - to be added!!!!!!
-
-
-
-
-
-
-
+        
+        
+        
+        
+        
+        
+        
         # Screen output if necessary
 
 

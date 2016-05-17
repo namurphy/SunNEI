@@ -35,7 +35,7 @@ def cmeheat_track_plasma(
                  height_of_final_dens = 3.0,     # in solar radii
                  vfinal               = 500.0,   # km/s
                  vscaletime           = 3600.0,  # s
-                 max_steps            = 25,     # maximum number of steps
+                 max_steps            = 1000,     # maximum number of steps
                  output_heights       = [2.,3.], # heights to output charge states
                  elements = ['H', 'He', 'C',     # elements to be modeled
                              'N', 'O', 'Ne',
@@ -83,6 +83,9 @@ def cmeheat_track_plasma(
 
     AtomicData = read_atomic_data(elements, screen_output=False)
     InitialChargeStates = create_ChargeStates_dictionary(elements,temperature[0],AtomicData)
+#    NewChargeStates = create_ChargeStates_dictionary(elements,temperature[0],AtomicData)
+
+    ChargeStateList = [InitialChargeStates]
 
     # The density in this model evolves self-similiarly as a power
     # law: n/n0 = (h/h0)^ExpansionExponent
@@ -96,7 +99,7 @@ def cmeheat_track_plasma(
         
         # Determine the time step
 
-        timestep = 200.0  # second, need to update this!!!!!!!!!!!
+        timestep = 20.0  # second, need to update this!!!!!!!!!!!
 
         time[i] = time[i-1] + timestep
 
@@ -118,7 +121,13 @@ def cmeheat_track_plasma(
 
         # Ionization time advance - to be added!!!!!!
         
-        
+        mean_temperature = 0.5*(temperature[i]+temperature[i-1])
+        mean_density = 0.5*(density[i]+density[i-1])
+
+        NewChargeStates = func_solver_eigenval(elements, AtomicData, mean_temperature, mean_density, timestep, ChargeStateList[i-1])
+
+#        ChargeStateList.append(func_solver_eigenval(elements, AtomicData, mean_temperature, mean_density, timestep, InitialChargeStates))
+        ChargeStateList.append(NewChargeStates.copy())
         
         
         
@@ -190,4 +199,4 @@ def cmeheat_track_plasma(
             # print('{0:2d} {1:3d} {2:4d}'.format(x, x*x, x*x*x))
 
 
-    return inputs
+    return ChargeStateList

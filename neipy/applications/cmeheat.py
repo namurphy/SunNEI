@@ -3,7 +3,6 @@ CMEheat
 =====
 This module contains non-equilibrium ionization routines to
 investigate the heating of coronal mass ejection (CME) plasma.
-The primary developers are Nick Murphy and Chengcai Shen.
 """
 
 import numpy as np
@@ -12,59 +11,72 @@ import pandas as pd
 from neipy.core import func_index_te, func_dt_eigenval, func_solver_eigenval
 from neipy.core import read_atomic_data, create_ChargeStates_dictionary
 
-# This pandas series allows a shortcut to finding the atomic number of
-# an element.  For example, all_elements['Fe'] will return 26.
-
-all_elements = pd.Series(np.arange(28)+1,
-                         index=['H' ,'He',
-                                'Li','Be','B' ,'C' ,'N' ,'O' ,'F' ,'Ne',
-                                'Na','Mg','Al','Si','P' ,'S' ,'Cl','Ar',
-                                'K' ,'Ca','Sc','Ti','V' ,'Cr','Mn','Fe','Co','Ni',
-                                ])
 # Definining constants
 
 RSun = 6.957e5 # km
-gamma = 1.666666666666667
-gamm1 = 0.666666666666667
+gamma = 5.0/3.0
+gamm1 = gamma-1.0
+
+# This pandas series allows a shortcut to finding the atomic number of
+# an element.  For example, AtomicNumbers['Fe'] will return 26.
+
+AtomicNumbers = pd.Series(np.arange(28)+1,
+                          index=['H' ,'He',
+                                 'Li','Be','B' ,'C' ,'N' ,'O' ,'F' ,'Ne',
+                                 'Na','Mg','Al','Si','P' ,'S' ,'Cl','Ar',
+                                 'K' ,'Ca','Sc','Ti','V' ,'Cr','Mn','Fe','Co','Ni',
+                                 ])
+
 
 def cmeheat_track_plasma(
-                 initial_height       = 0.1,     # in solar radii
-                 log_initial_temp     = 7.2,     # K
-                 log_initial_dens     = 10.0,     # number density in cm^-3
-                 log_final_dens       = 6.2,     #                 
-                 height_of_final_dens = 3.0,     # in solar radii
-                 vfinal               = 1000.0,   # km/s
-                 vscaletime           = 2400.0,  # s
-                 max_steps            = 1000,     # maximum number of steps
-                 output_heights       = [2.,3.], # heights to output charge states
-                 elements = ['H', 'He', 'C',     # elements to be modeled
-                             'N', 'O', 'F', 'Ne',
-                             'Mg', 'Si', 'S', 
-                             'Ar', 'Ca', 'Fe', ],
-                 screen_output=True,
-                 ):
+    initial_height       = 0.05,    # in solar radii
+    final_height         = 6.0 ,    # height to output charge states
+    log_initial_temp     = 6.0,     # K
+    log_initial_dens     = 9.6,     # number density in cm^-3
+    vfinal               = 750.0,   # km/s
+    vscaletime           = 2400.0,  # s
+    ExpansionExponent    = -2.5,    # dimensionless
+    max_steps            = 50,      # maximum number of steps
+    timestep             = 200.0,   # s
+    elements = ['H', 'He', 'C',     # elements to be modeled
+                'N', 'O', 'Ne',
+                'Mg', 'Si', 'S', 
+                'Ar', 'Ca', 'Fe', ],
+    screen_output=True,
+    ):
+    
     '''
     The main program for tracking the ionization states of a blob of
     plasma as it is moving away from the low corona.  
     '''
 
-    # Add in assert statements to double check inputs, and suggest
-    # characteristic values.  
+    # Check to make sure that realistic values for the inputs are
+    # being used.  Suggest changes, if necessary.
  
     assert initial_height >= 0.01 and initial_height <= 0.5, \
         'Choose an initial height between 0.01 and 0.5 RSun (usually 0.05 to 0.1 is best)'
-    assert initial_height < height_of_final_dens, \
-        'Need initial_height < height_of_final_dens'
     assert vfinal >= 50.0 and vfinal <= 5000.0, \
         'Need vfinal between 50.0 and 5000.0 km/s (usually 250 to 2500 km/s is best)'
     assert log_initial_temp >= 3.8 and log_initial_temp <= 8.0, \
         'Need log_initial_temp between 3.8 and 8.0 (usually 4.5 to 7.0 is best)'
-    assert log_initial_dens >= 8.0 and log_initial_dens <= 12.0, \
-        'Need log_initial_dens between 8.0 and 12.0 (usually 9.0 to 11.0 is best)'
     assert max_steps >= 1, 'Need max_steps >= 1'
     assert elements.__contains__('H'), 'The elements list must include H'
     assert elements.__contains__('He'), 'The elements list must include He'
- 
+
+#    ExpansionExponent = (log_final_dens-log_initial_dens)/(np.log10(height_of_final_dens)-np.log10(initial_height))
+
+    assert ExpansionExponent>=-4.0 and ExpansionExponent<=-0.9, \
+        'Need ExpansionExponent between -4 and -0.9 (usually between -3.5 and -1.5)'
+
+    # Make sure output heights are monotonically increasing with no
+    # duplicate values
+
+#    heights = np.array(heights, dtype=np.float64)
+#    heights = np.unique(heights)
+
+#    assert np.min(heights) > initial_height, \
+#        'Need min(heights) > initial_height  [note: units of RSun]'
+
     # Initialize arrays
 
     time = np.zeros(max_steps+1)        # seconds
@@ -83,14 +95,7 @@ def cmeheat_track_plasma(
 
     AtomicData = read_atomic_data(elements, screen_output=False)
     InitialChargeStates = create_ChargeStates_dictionary(elements,temperature[0],AtomicData)
-#    NewChargeStates = create_ChargeStates_dictionary(elements,temperature[0],AtomicData)
-
     ChargeStateList = [InitialChargeStates]
-
-    # The density in this model evolves self-similiarly as a power
-    # law: n/n0 = (h/h0)^ExpansionExponent
-
-    ExpansionExponent = (log_final_dens-log_initial_dens)/(np.log10(height_of_final_dens)-np.log10(initial_height))
 
     # The main time loop
 
@@ -99,11 +104,16 @@ def cmeheat_track_plasma(
         
         # Determine the time step
 
-        timestep = 5.0  # second, need to update this!!!!!!!!!!!
+#        timestep = 5.0  # second, need to update this!!!!!!!!!!!
 
+#        timestep = func_dt_eigenval(elements, AtomicData, te_list, ne_list, dt_in, 
+#                                    change_perct=1.0e-3,
+#                                    safety_factor=0.40,)
+#                         dt_ne=1.0e5,
+#                         dt_te=1.0e5,)
         time[i] = time[i-1] + timestep
 
-        # Determine evolution of plasma parameters
+        # Determine the velocity and height
 
         velocity[i] = vfinal*(1.0 - np.exp(-time[i]/vscaletime))
         height[i] = initial_height + vfinal*(time[i] + vscaletime*(np.exp(-time[i]/vscaletime) - 1.0))/RSun
@@ -127,10 +137,7 @@ def cmeheat_track_plasma(
         NewChargeStates = func_solver_eigenval(elements, AtomicData, mean_temperature, mean_density, timestep, ChargeStateList[i-1])
         ChargeStateList.append(NewChargeStates.copy())
         
-
-
         i = i + 1
-
 
     # Create an object to store the inputs and outputs
  
@@ -138,23 +145,19 @@ def cmeheat_track_plasma(
                         initial_height,
                         log_initial_temp,
                         log_initial_dens, 
-                        log_final_dens,
-                        height_of_final_dens,
                         vfinal,
                         vscaletime,
                         ExpansionExponent, 
-                        output_heights
+#                        heights
                         ],
                        index=[
                               'initial_height',
                               'log_initial_temp',
                               'log_initial_dens',
-                              'log_final_dens',
-                              'height_of_final_dens',
                               'vfinal',
                               'vscaletime',
                               'ExpansionExponent', 
-                              'output_heights',
+#                              'heights',
                               ])
 
     if screen_output:
@@ -208,60 +211,14 @@ def cmeheat_track_plasma(
 
             if element == 'H' or element=='He' or element=='C' or \
                element == 'N' or element=='O'  or element=='Si' or \
-               element =='Fe' or element=='F':
-
-                fs = format_string(element)
+               element =='Fe':
 
                 print('Initial and final charge states for '+element)
-
                 print()
                 print(ChargeStateList[0][element])
-                if all_elements[element] >= 10:
+                if AtomicNumbers[element] >= 10:
                     print()
                 print(ChargeStateList[max_steps][element])
                 print()
-#                print(fs.format(ChargeStateList[0][element][0], ChargeStateList[0][element][1]))
-#                print(repr(ChargeStateList[0][element]))
 
-
-#                print(fs.format(ChargeStateList[max_steps][element]))
-
-#            if element=='H':
-#                print('Initial and final charge states for '+element)
-#                print()
-#                print('{0:<6.4f}  {1:<6.4f}'.format(ChargeStateList[0][element][0], ChargeStateList[0][element][1]))
-#                print('{0:<6.4f}  {1:<6.4f}'.format(ChargeStateList[n][element][0], ChargeStateList[n][element][1]))
-#                print()
-#            if element=='He':
-#                print('Initial and final charge states for '+element)
-#                print('{0:<6.4f}  {1:<6.4f}  {2:<6.4f}'.format(ChargeStateList[0][element][0], 
-#                                                               ChargeStateList[0][element][1],
-#                                                               ChargeStateList[0][element][2]))
-#                print('{0:<6.4f}  {1:<6.4f}  {2:<6.4f}'.format(ChargeStateList[n][element][0], 
-#                                                               ChargeStateList[n][element][1],
-#                                                               ChargeStateList[n][element][2]))
-#                print()
-
-
-            
-#            if element=='H' or element=='He' or element=='C' or element=='Fe':
-
-#                print()
-#                print('Initial and final charge states for '+element)
-#                print()
-#                print(ChargeStateList[0][element])
-#                print()
-#                print(ChargeStateList[max_steps][element])
-
-            # Example: 
-            # print('{0:2d} {1:3d} {2:4d}'.format(x, x*x, x*x*x))
     return ChargeStateList
-
-
-def format_string(element):
-#    print(all_elements[element])
-    fs = ''
-    for i in range(all_elements[element]+1):
-        fs = fs + '{'+str(i)+':<6.4f} '
-#    print(fs)
-    return ' '

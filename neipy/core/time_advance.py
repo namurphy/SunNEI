@@ -132,7 +132,7 @@ def func_solver_eigenval(elements, AtomicData, te, ne, dt, f0_dic):
         # re-check the smallest value
         minconce = 1.0e-15
         for ii in np.arange(0, natom+1, dtype=np.int):
-            if (abs(ft[ii]) <= minconce):
+            if ((ft[ii]) <= minconce):
                 ft[ii] = 0.0
         ft_dic[element] = ft        
     return ft_dic

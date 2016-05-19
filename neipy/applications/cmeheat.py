@@ -29,16 +29,16 @@ gamm1 = 0.666666666666667
 
 def cmeheat_track_plasma(
                  initial_height       = 0.1,     # in solar radii
-                 log_initial_temp     = 6.0,     # K
-                 log_initial_dens     = 9.6,     # number density in cm^-3
-                 log_final_dens       = 6.6,     #                 
+                 log_initial_temp     = 7.2,     # K
+                 log_initial_dens     = 10.0,     # number density in cm^-3
+                 log_final_dens       = 6.2,     #                 
                  height_of_final_dens = 3.0,     # in solar radii
-                 vfinal               = 500.0,   # km/s
-                 vscaletime           = 3600.0,  # s
+                 vfinal               = 1000.0,   # km/s
+                 vscaletime           = 2400.0,  # s
                  max_steps            = 1000,     # maximum number of steps
                  output_heights       = [2.,3.], # heights to output charge states
                  elements = ['H', 'He', 'C',     # elements to be modeled
-                             'N', 'O', 'Ne',
+                             'N', 'O', 'F', 'Ne',
                              'Mg', 'Si', 'S', 
                              'Ar', 'Ca', 'Fe', ],
                  screen_output=True,
@@ -99,7 +99,7 @@ def cmeheat_track_plasma(
         
         # Determine the time step
 
-        timestep = 20.0  # second, need to update this!!!!!!!!!!!
+        timestep = 5.0  # second, need to update this!!!!!!!!!!!
 
         time[i] = time[i-1] + timestep
 
@@ -119,21 +119,14 @@ def cmeheat_track_plasma(
 
         temperature[i] = temperature[i-1]*(density[i]/density[i-1])**gamm1
 
-        # Ionization time advance - to be added!!!!!!
+        # Ionization time advance
         
         mean_temperature = 0.5*(temperature[i]+temperature[i-1])
         mean_density = 0.5*(density[i]+density[i-1])
 
         NewChargeStates = func_solver_eigenval(elements, AtomicData, mean_temperature, mean_density, timestep, ChargeStateList[i-1])
-
-#        ChargeStateList.append(func_solver_eigenval(elements, AtomicData, mean_temperature, mean_density, timestep, InitialChargeStates))
         ChargeStateList.append(NewChargeStates.copy())
         
-        
-        
-        
-        
-        # Screen output if necessary
 
 
         i = i + 1
@@ -183,20 +176,92 @@ def cmeheat_track_plasma(
         # Initial temperature
         # vfinal, vscaletime
         
-        
 
         # Outputs
         
+        if max_steps <= 10 :
+            output_interval = 1
+        elif max_steps <= 20: 
+            output_interval = 2
+        elif max_steps <= 60:
+            output_interval = 5
+        elif max_steps <= 240: 
+            output_interval = 20
+        elif max_steps <= 1000:
+            output_interval = 50
+        elif max_steps > 1000:
+            output_interval = 100
+            
+        # Output information on height, velocity, and thermodynamics
+
         for i in range(max_steps+1):
-            print(('i={0:4d}  t={1:>8.2f}  V={2:>6.1f}  h={3:>6.3f}  log(n)={4:>5.2f}'+\
-                       '  log(T)={5:>5.2f}').format(i, time[i], velocity[i], 
-                                                    height[i], np.log10(density[i]), 
-                                                    np.log10(temperature[i])))
+            if (np.mod(i,output_interval) == 0) or (i == max_steps):
+                print(('i={0:4d}  t={1:>8.2f}  V={2:>6.1f}  h={3:>6.3f}  log(n)={4:>5.2f}'+\
+                           '  log(T)={5:>5.2f}').format(i, time[i], velocity[i], 
+                                                        height[i], np.log10(density[i]), 
+                                                        np.log10(temperature[i])))
+        print()
+
+        np.set_printoptions(formatter={'float': '{: 0.3f}'.format})
+
+        for element in elements:
+
+            if element == 'H' or element=='He' or element=='C' or \
+               element == 'N' or element=='O'  or element=='Si' or \
+               element =='Fe' or element=='F':
+
+                fs = format_string(element)
+
+                print('Initial and final charge states for '+element)
+
+                print()
+                print(ChargeStateList[0][element])
+                if all_elements[element] >= 10:
+                    print()
+                print(ChargeStateList[max_steps][element])
+                print()
+#                print(fs.format(ChargeStateList[0][element][0], ChargeStateList[0][element][1]))
+#                print(repr(ChargeStateList[0][element]))
 
 
+#                print(fs.format(ChargeStateList[max_steps][element]))
+
+#            if element=='H':
+#                print('Initial and final charge states for '+element)
+#                print()
+#                print('{0:<6.4f}  {1:<6.4f}'.format(ChargeStateList[0][element][0], ChargeStateList[0][element][1]))
+#                print('{0:<6.4f}  {1:<6.4f}'.format(ChargeStateList[n][element][0], ChargeStateList[n][element][1]))
+#                print()
+#            if element=='He':
+#                print('Initial and final charge states for '+element)
+#                print('{0:<6.4f}  {1:<6.4f}  {2:<6.4f}'.format(ChargeStateList[0][element][0], 
+#                                                               ChargeStateList[0][element][1],
+#                                                               ChargeStateList[0][element][2]))
+#                print('{0:<6.4f}  {1:<6.4f}  {2:<6.4f}'.format(ChargeStateList[n][element][0], 
+#                                                               ChargeStateList[n][element][1],
+#                                                               ChargeStateList[n][element][2]))
+#                print()
+
+
+            
+#            if element=='H' or element=='He' or element=='C' or element=='Fe':
+
+#                print()
+#                print('Initial and final charge states for '+element)
+#                print()
+#                print(ChargeStateList[0][element])
+#                print()
+#                print(ChargeStateList[max_steps][element])
 
             # Example: 
             # print('{0:2d} {1:3d} {2:4d}'.format(x, x*x, x*x*x))
-
-
     return ChargeStateList
+
+
+def format_string(element):
+#    print(all_elements[element])
+    fs = ''
+    for i in range(all_elements[element]+1):
+        fs = fs + '{'+str(i)+':<6.4f} '
+#    print(fs)
+    return ' '

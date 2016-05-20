@@ -280,4 +280,43 @@ def print_screen_output(out):
                 print()
             print(out['ChargeStateList'][out['nsteps']][element])
             print()
-                
+
+def cmeheat_grid(
+    initial_height = 0.1,
+    final_height = 6.0,
+    log_temp_range = [5.0,7.0], 
+    log_dens_range = [9.0,11.0],
+    vfinal_range = [500, 2000],
+        vscaletime = 1800.0,
+    ExponentRange = [-3.2,-1.5], 
+    ntemp = 2,
+    ndens = 2,
+    nvel = 2,
+    nexp = 2,
+    max_steps = 2500, 
+    dt = 20.0, 
+    elements = ['H', 'He', 'C',     # elements to be modeled
+                'N', 'O', 'Ne',
+                'Mg', 'Si', 'S', 
+                'Ar', 'Ca', 'Fe', ],
+    ):
+
+    # Check to make sure that inputs are valid
+
+    
+    #
+
+    if np.unique(log_dens_range)==1:
+        log_initial_densities = np.array([log_dens_range])
+
+
+#    if ndens == 2 and np.size(log_dens_range)==2:
+#        log_initial_densities = np.linspace(log_dens_range[0], log_dens_range[1], num=ndens)
+#    elif ndens == 1
+
+    for je in range(nexp):
+        for jt in range(ntemp):
+            for jv in range(nvel):
+                for jd in range(ndens):
+                    i = 3
+                    

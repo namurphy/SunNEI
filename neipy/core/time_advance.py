@@ -8,14 +8,14 @@ import numpy as np
 import pandas as pd
 
 # This pandas series allows a shortcut to finding the atomic number of
-# an element.  For example, all_elements['Fe'] will return 26.
+# an element.  For example, AtomicNumbers['Fe'] will return 26.
 
-all_elements = pd.Series(np.arange(28)+1,
-                         index=['H' ,'He',
-                                'Li','Be','B' ,'C' ,'N' ,'O' ,'F' ,'Ne',
-                                'Na','Mg','Al','Si','P' ,'S' ,'Cl','Ar',
-                                'K' ,'Ca','Sc','Ti','V' ,'Cr','Mn','Fe','Co','Ni',
-                                ])
+AtomicNumbers = pd.Series(np.arange(28)+1,
+                          index=['H' ,'He',
+                                 'Li','Be','B' ,'C' ,'N' ,'O' ,'F' ,'Ne',
+                                 'Na','Mg','Al','Si','P' ,'S' ,'Cl','Ar',
+                                 'K' ,'Ca','Sc','Ti','V' ,'Cr','Mn','Fe','Co','Ni',
+                                 ])
 
 #------------------------------------------------------------------------------
 # function: Find te node on the Te table
@@ -43,11 +43,6 @@ def func_dt_eigenval(elements_arr, AtomicData, te_list, ne_list, dt_in,
                      safety_factor=0.40,
                      dt_ne=1.0e5,
                      dt_te=1.0e5,):
-
-#    change_perct = 1.0e-3 # how much charge states change to equilibrium case
-#    safety_factor = 0.40
-#    dt_ne = 1.0e+5
-#    dt_te = 1.0e+5
     
     ind_0 = func_index_te(te_list[0], AtomicData['temperatures'])
     ind_1 = func_index_te(te_list[1], AtomicData['temperatures'])
@@ -88,13 +83,13 @@ def func_dt_eigenval(elements_arr, AtomicData, te_list, ne_list, dt_in,
 #   2016-05-17
 #   Replace input parameter 'element' by 'elements'.
 #   Add a loop to over a element list.
-#   f0_dic and ft_dic are charge_state dictionary defined using funtion 
+#   f0_dic and ft_dic are charge_state dictionary defined using function 
 #   neipy.create_ChargeStates_dictionary.
 #
 def func_solver_eigenval(elements, AtomicData, te, ne, dt, f0_dic):
     
     # copy a dictionary to save the advanced charge state. 
-    ft_dic = f0_dic
+    ft_dic = f0_dic.copy()
 
     for element in elements:
         nstates = AtomicData[element]['nstates']
@@ -111,7 +106,7 @@ def func_solver_eigenval(elements, AtomicData, te, ne, dt, f0_dic):
         evect_1 = np.reshape(evect_0, (nstates*nstates))
         evect = np.reshape(evect_1, (nstates, nstates), order='F')
     
-        # eigenvector_invers
+        # eigenvector_inverse
         evect_inv_0 = AtomicData[element]['eigenvector_inv'][ind,:,:]
         evect_inv_1 = np.reshape(evect_inv_0, (nstates*nstates))
         evect_inv = np.reshape(evect_inv_1, (nstates, nstates), order='F')

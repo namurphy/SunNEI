@@ -42,6 +42,7 @@ def cmeheat_track_plasma(
                 'Mg', 'Si', 'S', 
                 'Ar', 'Ca', 'Fe', ],
     screen_output=True,
+    floor_log_temp = 2,
     ):
     
     '''
@@ -76,10 +77,12 @@ def cmeheat_track_plasma(
     height = np.zeros(max_steps+1)      # units of RSun
     velocity = np.zeros(max_steps+1)    # km/s
     density = np.zeros(max_steps+1)     # cm**-3
+#    electron_density = np.zeros(max_steps+1)
     temperature = np.zeros(max_steps+1) # K
 
     height[0] = initial_height 
     density[0] = 10**log_initial_dens
+    # find electron density from initial charge states and assumed abundance of Helium
     temperature[0] = 10**log_initial_temp
 
     # Read in the atomic data needed for the non-equilibrium
@@ -132,6 +135,9 @@ def cmeheat_track_plasma(
         # radiative cooling, energy stored in ionization, and additional heating
 
         temperature[i] = temperature[i-1]*(density[i]/density[i-1])**gamm1
+
+        if temperature[i] < 10**floor_log_temp:
+            temperature[i] = 10**floor_log_temp
 
         # Ionization time advance
         
@@ -287,8 +293,8 @@ def cmeheat_grid(
     log_temp_range = [5.0,7.0], 
     log_dens_range = [9.0,11.0],
     vfinal_range = [500, 2000],
-        vscaletime = 1800.0,
-    ExponentRange = [-3.2,-1.5], 
+    vscaletime = 1800.0,
+    ExponentRange = [-3.0,-1.5], 
     ntemp = 2,
     ndens = 2,
     nvel = 2,
@@ -301,22 +307,92 @@ def cmeheat_grid(
                 'Ar', 'Ca', 'Fe', ],
     ):
 
-    # Check to make sure that inputs are valid
+    '''
+    Program: cmeheat_grid
+    '''
 
+    # Print screen output
     
+    print()
+    print("Running cmeheat_grid")
+    print()
+
+    # Put the ranges of inputs into NumPy arrays
+    
+    log_temp_range = np.array(log_temp_range)
+    log_dens_range = np.array(log_dens_range)
+    vfinal_range = np.array(vfinal_range)
+    ExponentRange = np.array(ExponentRange)
+
+    # The number of temperatures, densities, velocities, and expansion
+    # exponents is given by ntemp, ndens, nvel, and nexp.  Here we
+    # make sure that these integers are consistent with the inputted
+    # ranges.  
+
+    variables = ['T', 'n', 'V', 'e']
+
+    ranges = {'T':np.array(log_temp_range),
+              'n':np.array(log_dens_range),
+              'V':np.array(vfinal_range),
+              'e':np.array(ExponentRange) }
+    
+    sizes = {'T':ntemp, 'n':ndens, 'V':nvel, 'e':nexp}
+
+    gridinputs = {}
+    
+    # If any of the ranges have just one element, then change the size
+            
+    for var in variables:
+        if ranges[var].size == 1:
+            sizes[var] = 1
+            gridinputs[var] = ranges[var][0]
+        elif ranges[var].size == 2:
+            gridinputs[var][0:2] = ranges[var][0:2]
+    # Make the arrays for the different simulations
+
+
+
+    # Print inputs
+
+#    print("initial_height = ", initial_height)
+    
+
+
     #
 
-    if np.unique(log_dens_range)==1:
-        log_initial_densities = np.array([log_dens_range])
+#    if np.unique(log_dens_range)==1:
+#        log_initial_densities = np.array([log_dens_range])
 
 
 #    if ndens == 2 and np.size(log_dens_range)==2:
 #        log_initial_densities = np.linspace(log_dens_range[0], log_dens_range[1], num=ndens)
 #    elif ndens == 1
 
-    for je in range(nexp):
+            
+
+            list_of_simulations = []
+            
+    for je in range(nexp):    
         for jt in range(ntemp):
             for jv in range(nvel):
                 for jd in range(ndens):
-                    i = 3
-                    
+
+                    print(je,jt,jv,jd)
+
+                    simulation = cmeheat_track_plasma(
+                        initial_height = initial_height,
+                        final_height = final_height,
+                        log_initial_temp = 6,
+                        log_initial_dens = 9,
+                        vfinal = 1500,
+                        vscaletime = vscaletime,
+                        ExpansionExponent = -2.5,
+                        max_steps = max_steps,
+                        dt = dt,
+                        elements = elements,
+                        screen_output = False,
+                        )
+
+                    list_of_simulations.append(simulation.copy())
+
+    return list_of_simulations

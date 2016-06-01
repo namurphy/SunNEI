@@ -172,6 +172,7 @@ def cmeheat_track_plasma(
         'nsteps':nsteps,
         'final_time':final_time,
         'elements':elements,
+        'floor_log_temp':floor_log_temp,
         }
 
     if screen_output:
@@ -199,7 +200,7 @@ def find_time_for_height(height, vfinal, vscaletime, initial_height):
     assert height>=initial_height, 'Need height >= initial_height'
     time = fsolve(find_time_for_height_aux, height, 
                   args=(height, vfinal, vscaletime, initial_height),
-                  xtol=1e-13)
+                  xtol=1e-10)
     assert time[0]>=0, 'Negative time found using find_time_for_height'
     return time[0]
 
@@ -295,50 +296,46 @@ def cmeheat_grid(
     vfinal_range = [500, 2000],
     vscaletime = 1800.0,
     ExponentRange = [-3.0,-1.5], 
+    nvel = 2,
     ntemp = 2,
     ndens = 2,
-    nvel = 2,
-    nexp = 2,
+    nexp = 2,                       
     max_steps = 2500, 
     dt = 20.0, 
     elements = ['H', 'He', 'C',     # elements to be modeled
                 'N', 'O', 'Ne',
                 'Mg', 'Si', 'S', 
                 'Ar', 'Ca', 'Fe', ],
+    floor_log_temp=2.0,
     ):
 
     '''
     Program: cmeheat_grid
     '''
-
-    # Print screen output
     
     print()
     print("Running cmeheat_grid")
-    print()
 
-    # Put the ranges of inputs into NumPy arrays
+
+    # Make dictionaries to store 
+
+    variables = ['V', 'T', 'n', 'e']
+
+    ranges = {
+        'V':np.array(vfinal_range),
+        'T':np.array(log_temp_range),
+        'n':np.array(log_dens_range),
+        'e':np.array(ExponentRange),
+        }
     
-    log_temp_range = np.array(log_temp_range)
-    log_dens_range = np.array(log_dens_range)
-    vfinal_range = np.array(vfinal_range)
-    ExponentRange = np.array(ExponentRange)
+    sizes = {'V':nvel, 'T':ntemp, 'n':ndens, 'e':nexp, }
+
+    gridinputs = {}
 
     # The number of temperatures, densities, velocities, and expansion
     # exponents is given by ntemp, ndens, nvel, and nexp.  Here we
     # make sure that these integers are consistent with the inputted
     # ranges.  
-
-    variables = ['T', 'n', 'V', 'e']
-
-    ranges = {'T':np.array(log_temp_range),
-              'n':np.array(log_dens_range),
-              'V':np.array(vfinal_range),
-              'e':np.array(ExponentRange) }
-    
-    sizes = {'T':ntemp, 'n':ndens, 'V':nvel, 'e':nexp}
-
-    gridinputs = {}
     
     # If any of the ranges have just one element, then change the size
             
@@ -346,51 +343,58 @@ def cmeheat_grid(
         if ranges[var].size == 1:
             sizes[var] = 1
             gridinputs[var] = ranges[var][0]
-        elif ranges[var].size == 2:
-            gridinputs[var][0:2] = ranges[var][0:2]
-    # Make the arrays for the different simulations
+        elif ranges[var].size == 2 and sizes[var] == 2:
+            gridinputs[var] = ranges[var]
+        elif sizes[var] > 2:
+            gridinputs[var] = \
+                np.linspace(ranges[var][0], ranges[var][1], sizes[var])
+           
+    # Print information about the grid of simulations
 
+    print()
 
+    print('Initial parameters:')
+    print('nvel={0:>3d}   ntemp={1:>3d}   ndens={2:>3d}  nexp={3:>3d}'.format(
+            gridinputs['V'].size, 
+            gridinputs['T'].size, 
+            gridinputs['n'].size,
+            gridinputs['e'].size,
+            ))
 
-    # Print inputs
+    print()
 
-#    print("initial_height = ", initial_height)
-    
+    # Loop through all of the different inputs for the grid of
+    # simulations.  Add the results to the list_of_simulations
 
+    list_of_simulations = []
 
-    #
-
-#    if np.unique(log_dens_range)==1:
-#        log_initial_densities = np.array([log_dens_range])
-
-
-#    if ndens == 2 and np.size(log_dens_range)==2:
-#        log_initial_densities = np.linspace(log_dens_range[0], log_dens_range[1], num=ndens)
-#    elif ndens == 1
-
-            
-
-            list_of_simulations = []
-            
-    for je in range(nexp):    
+    for jv in range(nvel):            
         for jt in range(ntemp):
-            for jv in range(nvel):
-                for jd in range(ndens):
+            for jd in range(ndens):
+                for je in range(nexp):
 
-                    print(je,jt,jv,jd)
+                    # Print information about each simulation
 
+                    print('{0:>3d}{1:>3d}{2:>3d}{3:>3d}   V={4:>7.1f}  log T={5:>5.2f}  log n={6:>5.2f}  alpha={7:>5.2f}'.format(
+                            jv,jt,jd,je,
+                            gridinputs['V'][jv],
+                            gridinputs['T'][jt],
+                            gridinputs['n'][jd],
+                            gridinputs['e'][je],))   
+      
                     simulation = cmeheat_track_plasma(
                         initial_height = initial_height,
                         final_height = final_height,
-                        log_initial_temp = 6,
-                        log_initial_dens = 9,
-                        vfinal = 1500,
+                        log_initial_temp = gridinputs['T'][jt],
+                        log_initial_dens = gridinputs['n'][jd],
+                        vfinal = gridinputs['V'][jv],
                         vscaletime = vscaletime,
-                        ExpansionExponent = -2.5,
+                        ExpansionExponent = gridinputs['e'][je],
                         max_steps = max_steps,
                         dt = dt,
                         elements = elements,
                         screen_output = False,
+                        floor_log_temp = floor_log_temp,
                         )
 
                     list_of_simulations.append(simulation.copy())

@@ -11,10 +11,10 @@ import pandas as pd
 from neipy.core import func_index_te, func_dt_eigenval, func_solver_eigenval
 from neipy.core import read_atomic_data, create_ChargeStates_dictionary
 
-# Definining constants
+# Definining to be used constants
 
 RSun = 6.957e5 # km
-gamma = 5.0/3.0
+gamma = 5.0/3.0 # ratio of specific heats
 gamm1 = gamma-1.0
 
 # This pandas series allows a shortcut to finding the atomic number of
@@ -180,6 +180,125 @@ def cmeheat_track_plasma(
        
     return output
 
+
+
+def cmeheat_grid(
+    initial_height = 0.1,
+    final_height = 6.0,
+    log_temp_range = [5.0,7.0], 
+    log_dens_range = [9.0,11.0],
+    vfinal_range = [500, 2000],
+    vscaletime = 1800.0,
+    ExponentRange = [-3.0,-1.5], 
+    nvel = 2,
+    ntemp = 2,
+    ndens = 2,
+    nexp = 2,                       
+    max_steps = 2500, 
+    dt = 20.0, 
+    elements = ['H', 'He', 'C',     # elements to be modeled
+                'N', 'O', 'Ne',
+                'Mg', 'Si', 'S', 
+                'Ar', 'Ca', 'Fe', ],
+    floor_log_temp=2.0,
+    ):
+
+    '''
+    Program: cmeheat_grid
+    '''
+    
+    print()
+    print("Running cmeheat_grid")
+
+
+    # Make dictionaries to store 
+
+    variables = ['V', 'T', 'n', 'e']
+
+    ranges = {
+        'V':np.array(vfinal_range),
+        'T':np.array(log_temp_range),
+        'n':np.array(log_dens_range),
+        'e':np.array(ExponentRange),
+        }
+    
+    sizes = {'V':nvel, 'T':ntemp, 'n':ndens, 'e':nexp, }
+
+    gridinputs = {}
+
+    # The number of temperatures, densities, velocities, and expansion
+    # exponents is given by ntemp, ndens, nvel, and nexp.  Here we
+    # make sure that these integers are consistent with the inputted
+    # ranges.  
+    
+    # If any of the ranges have just one element, then change the size
+            
+    for var in variables:
+        if ranges[var].size == 1:
+            sizes[var] = 1
+            gridinputs[var] = ranges[var][0]
+        elif ranges[var].size == 2 and sizes[var] == 2:
+            gridinputs[var] = ranges[var]
+        elif sizes[var] > 2:
+            gridinputs[var] = \
+                np.linspace(ranges[var][0], ranges[var][1], sizes[var])
+           
+    # Print information about the grid of simulations
+
+    print()
+
+    print('Initial parameters:')
+    print('nvel={0:>3d}   ntemp={1:>3d}   ndens={2:>3d}  nexp={3:>3d}'.format(
+            gridinputs['V'].size, 
+            gridinputs['T'].size, 
+            gridinputs['n'].size,
+            gridinputs['e'].size,
+            ))
+
+    print()
+
+    # Loop through all of the different inputs for the grid of
+    # simulations.  Add the results to the list_of_simulations.
+
+    # Is there a better way to store this than a list of simulations???
+    #  Need to put in jv, jt, jd, je
+
+    list_of_simulations = []
+
+    for jv in range(nvel):            
+        for jt in range(ntemp):
+            for jd in range(ndens):
+                for je in range(nexp):
+
+                    # Print information about each simulation
+
+                    print('{0:>3d}{1:>3d}{2:>3d}{3:>3d}   V={4:>7.1f}  log T={5:>5.2f}  log n={6:>5.2f}  alpha={7:>5.2f}'.format(
+                            jv,jt,jd,je,
+                            gridinputs['V'][jv],
+                            gridinputs['T'][jt],
+                            gridinputs['n'][jd],
+                            gridinputs['e'][je],))   
+      
+                    simulation = cmeheat_track_plasma(
+                        initial_height = initial_height,
+                        final_height = final_height,
+                        log_initial_temp = gridinputs['T'][jt],
+                        log_initial_dens = gridinputs['n'][jd],
+                        vfinal = gridinputs['V'][jv],
+                        vscaletime = vscaletime,
+                        ExpansionExponent = gridinputs['e'][je],
+                        max_steps = max_steps,
+                        dt = dt,
+                        elements = elements,
+                        screen_output = False,
+                        floor_log_temp = floor_log_temp,
+                        )
+
+                    list_of_simulations.append(simulation.copy())
+
+    return list_of_simulations
+
+
 def find_velocity(time, vfinal, vscaletime):
     '''
     Find the velocity of a blob as a function of time.  
@@ -287,116 +406,3 @@ def print_screen_output(out):
                 print()
             print(out['ChargeStateList'][out['nsteps']][element])
             print()
-
-def cmeheat_grid(
-    initial_height = 0.1,
-    final_height = 6.0,
-    log_temp_range = [5.0,7.0], 
-    log_dens_range = [9.0,11.0],
-    vfinal_range = [500, 2000],
-    vscaletime = 1800.0,
-    ExponentRange = [-3.0,-1.5], 
-    nvel = 2,
-    ntemp = 2,
-    ndens = 2,
-    nexp = 2,                       
-    max_steps = 2500, 
-    dt = 20.0, 
-    elements = ['H', 'He', 'C',     # elements to be modeled
-                'N', 'O', 'Ne',
-                'Mg', 'Si', 'S', 
-                'Ar', 'Ca', 'Fe', ],
-    floor_log_temp=2.0,
-    ):
-
-    '''
-    Program: cmeheat_grid
-    '''
-    
-    print()
-    print("Running cmeheat_grid")
-
-
-    # Make dictionaries to store 
-
-    variables = ['V', 'T', 'n', 'e']
-
-    ranges = {
-        'V':np.array(vfinal_range),
-        'T':np.array(log_temp_range),
-        'n':np.array(log_dens_range),
-        'e':np.array(ExponentRange),
-        }
-    
-    sizes = {'V':nvel, 'T':ntemp, 'n':ndens, 'e':nexp, }
-
-    gridinputs = {}
-
-    # The number of temperatures, densities, velocities, and expansion
-    # exponents is given by ntemp, ndens, nvel, and nexp.  Here we
-    # make sure that these integers are consistent with the inputted
-    # ranges.  
-    
-    # If any of the ranges have just one element, then change the size
-            
-    for var in variables:
-        if ranges[var].size == 1:
-            sizes[var] = 1
-            gridinputs[var] = ranges[var][0]
-        elif ranges[var].size == 2 and sizes[var] == 2:
-            gridinputs[var] = ranges[var]
-        elif sizes[var] > 2:
-            gridinputs[var] = \
-                np.linspace(ranges[var][0], ranges[var][1], sizes[var])
-           
-    # Print information about the grid of simulations
-
-    print()
-
-    print('Initial parameters:')
-    print('nvel={0:>3d}   ntemp={1:>3d}   ndens={2:>3d}  nexp={3:>3d}'.format(
-            gridinputs['V'].size, 
-            gridinputs['T'].size, 
-            gridinputs['n'].size,
-            gridinputs['e'].size,
-            ))
-
-    print()
-
-    # Loop through all of the different inputs for the grid of
-    # simulations.  Add the results to the list_of_simulations
-
-    list_of_simulations = []
-
-    for jv in range(nvel):            
-        for jt in range(ntemp):
-            for jd in range(ndens):
-                for je in range(nexp):
-
-                    # Print information about each simulation
-
-                    print('{0:>3d}{1:>3d}{2:>3d}{3:>3d}   V={4:>7.1f}  log T={5:>5.2f}  log n={6:>5.2f}  alpha={7:>5.2f}'.format(
-                            jv,jt,jd,je,
-                            gridinputs['V'][jv],
-                            gridinputs['T'][jt],
-                            gridinputs['n'][jd],
-                            gridinputs['e'][je],))   
-      
-                    simulation = cmeheat_track_plasma(
-                        initial_height = initial_height,
-                        final_height = final_height,
-                        log_initial_temp = gridinputs['T'][jt],
-                        log_initial_dens = gridinputs['n'][jd],
-                        vfinal = gridinputs['V'][jv],
-                        vscaletime = vscaletime,
-                        ExpansionExponent = gridinputs['e'][je],
-                        max_steps = max_steps,
-                        dt = dt,
-                        elements = elements,
-                        screen_output = False,
-                        floor_log_temp = floor_log_temp,
-                        )
-
-                    list_of_simulations.append(simulation.copy())
-
-    return list_of_simulations

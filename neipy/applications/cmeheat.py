@@ -30,10 +30,10 @@ AtomicNumbers = pd.Series(np.arange(28)+1,
 He_per_H = 0.1 # number of Helium atoms per Hydrogen atom, regardless of ionization state
 
 def cmeheat_track_plasma(
-    initial_height       = 0.1,    # in solar radii
-    final_height         = 5.0 ,    # height to output charge states
-    log_initial_temp     = 5.0,     # K
-    log_initial_dens     = 10.0,     # number density in cm^-3
+    initial_height       = 0.1,     # in solar radii
+    final_height         = 6.0 ,    # height to output charge states
+    log_initial_temp     = 6.0,     # K
+    log_initial_dens     = 10.0,    # number density in cm^-3
     vfinal               = 500.0,   # km/s
     vscaletime           = 1800.0,  # s
     ExpansionExponent    = -2.5,    # dimensionless
@@ -43,17 +43,64 @@ def cmeheat_track_plasma(
                 'Ar', 'Ca', 'Fe', ],
     screen_output=True,
     floor_log_temp = 2,
-    safety_factor = 0.95,            # safety factor for time step of order 1
+    safety_factor = 1.0,            # safety factor for time step of order 1
     ):
     
     '''
     The main program for tracking the ionization states of a blob of
     plasma as it is moving away from the low corona.  
 
+    Example
+
+    output = neipy.cmeheat_track_plasma(log_initial_temp=6.4, 
+                                        log_initial_dens=9.4,
+                                        vfinal=2500.0,
+                                        ExpansionExponent=-2.5)
+    
     Inputs
 
-        initial_height: the distance above the solar photosphere that
-        the blob starts that, in units of solar radii
+        initial_height: the distance above the solar photosphere of
+        the starting position of the blob, in units of solar radii.
+        This should generally be between 0.05 and 0.10 RSun.
+
+        final_height: the distance above the solar photosphere of the
+        ending position of the blob, in units of solar radii
+
+        log_initial_temp: the logarithm of the initial temperature in
+        Kelvin.  Should generally be between 4.6 and 7.0.
+
+        log_initial_dens: the logarithm of the initial number density
+        of hydrogen (both neutral and ionized).  If initial_height is
+        changed, then this should be changed accordingly.
+
+        vfinal: the final velocity of the blob, in km/s.
+
+        vscaletime: the characteristic time scale for acceleration, in
+        units of seconds.
+
+        ExpansionExponent: the exponent that governs how the number
+        density of hydrogen changes with height.  The equation is:
+        (n/n0) = (h/h0)**ExpansionExponent.  This variable should
+        generally be between -3.0 (in which case the density drops
+        rapidly with height) and -1.5 (in which case the density drops
+        mildly with height).  [Note: this variable is sometimes called
+        alpha.]
+        
+        elements: a list containing strings of the symbols for the
+        elements to be modeled.  This defaults to the dozen most
+        abundant elements.  This list must include 'H' and 'He' in
+        order to calculate the electron density later on.
+
+        floor_log_temp: the logarithm of the minimum temperature in
+        Kelvin for the ejecta.  If the temperature of the blob is
+        calculated to drop below this critical temperature, then the
+        temperature is reset to this value.  In effect, this parameter
+        adds heat to the plasma.
+
+        safety_factor: a value of order 1 that acts as a coefficient
+        for how the time step is calculated.  For high quality runs,
+        use a safety_factor of perhaps 0.3.  For practice runs, you may
+        use a safety factor of 2 or 3 to save computational time.  
 
     Remaining tasks
         -Include radiative losses

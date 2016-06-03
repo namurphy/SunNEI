@@ -27,22 +27,23 @@ AtomicNumbers = pd.Series(np.arange(28)+1,
                                  'K' ,'Ca','Sc','Ti','V' ,'Cr','Mn','Fe','Co','Ni',
                                  ])
 
+He_per_H = 0.1 # number of Helium atoms per Hydrogen atom, regardless of ionization state
+
 def cmeheat_track_plasma(
     initial_height       = 0.1,    # in solar radii
-    final_height         = 6.0 ,    # height to output charge states
-    log_initial_temp     = 6.0,     # K
+    final_height         = 5.0 ,    # height to output charge states
+    log_initial_temp     = 5.0,     # K
     log_initial_dens     = 10.0,     # number density in cm^-3
-    vfinal               = 250.0,   # km/s
+    vfinal               = 500.0,   # km/s
     vscaletime           = 1800.0,  # s
-    ExpansionExponent    = -2.0,    # dimensionless
-    max_steps            = 2500,    # maximum number of steps
-    dt                   = 20.0,   # s
+    ExpansionExponent    = -2.5,    # dimensionless
     elements = ['H', 'He', 'C',     # elements to be modeled
                 'N', 'O', 'Ne',
                 'Mg', 'Si', 'S', 
                 'Ar', 'Ca', 'Fe', ],
     screen_output=True,
     floor_log_temp = 2,
+    safety_factor = 0.95,            # safety factor for time step of order 1
     ):
     
     '''
@@ -51,68 +52,118 @@ def cmeheat_track_plasma(
     '''
 
     # Check to make sure that realistic values for the inputs are
-    # being used.  Suggest appropriate ranges.
+    # being used.  Suggest appropriate ranges, if needed.
  
     assert initial_height >= 0.01 and initial_height <= 0.5, \
-        'Choose an initial height between 0.01 and 0.5 RSun (usually 0.05 to 0.1 is best)'
+        'Choose an initial height between 0.01 and 0.5 RSun (from 0.05 to 0.1 is best)'
 
     assert vfinal >= 50.0 and vfinal <= 5000.0, \
-        'Need vfinal between 50.0 and 5000.0 km/s (usually 250 to 2500 km/s is best)'
+        'Need vfinal between 50.0 and 5000.0 km/s (from 250 to 2500 km/s is best)'
 
-    assert log_initial_temp >= 3.8 and log_initial_temp <= 8.0, \
-        'Need log_initial_temp between 3.8 and 8.0 (usually 4.5 to 7.0 is best)'
+    assert log_initial_temp >= 4.0 and log_initial_temp <= 8.0, \
+        'Need log_initial_temp between 4.0 and 8.0 (from 4.6 to 7.0 is best)'
 
-    assert max_steps >= 1, 'Need max_steps >= 1'
-    assert elements.__contains__('H'), 'The elements list must include H'
-    assert elements.__contains__('He'), 'The elements list must include He'
+    assert elements.__contains__('H'), \
+        'The elements list must include H to calculate electron density'
 
-#    ExpansionExponent = (log_final_dens-log_initial_dens)/(np.log10(height_of_final_dens)-np.log10(initial_height))
+    assert elements.__contains__('He'), \
+        'The elements list must include He to calculate electron density'
 
     assert ExpansionExponent>=-4.0 and ExpansionExponent<=-0.9, \
-        'Need ExpansionExponent between -4 and -0.9 (usually between -3.5 and -1.5)'
+        'Need ExpansionExponent between -4 and -0.9 (usually between -3.0 and -1.5)'
 
-    # Initialize arrays
+    # Read in the atomic data to be used for the non-equilibrium
+    # ionization calculations.
+
+    AtomicData = read_atomic_data(elements, screen_output=False)
+
+    # The atomic data used for these calculations are stored in grids
+    # that are a function of temperature at some resolution in
+    # logarithm space (typically 0.01).  Find this resolution from the
+    # AtomicData dictionary so that it can be used to update the time
+    # step over the course of the simulation.
+
+    logTres = np.log10(AtomicData['temperatures'][1]) - np.log10(AtomicData['temperatures'][0])
+
+    # Estimate the maximum number of steps needed to complete the
+    # simulation.
+
+    max_steps = np.int64(12.0/(safety_factor*logTres))
+
+    # Initialize arrays that will store physical conditions over the
+    # course of the simulation
 
     time = np.zeros(max_steps+1)        # seconds
     height = np.zeros(max_steps+1)      # units of RSun
     velocity = np.zeros(max_steps+1)    # km/s
-    density = np.zeros(max_steps+1)     # cm**-3
-#    electron_density = np.zeros(max_steps+1)
+    density = np.zeros(max_steps+1)     # cm**-3: number density of H 
+    electron_density = np.zeros(max_steps+1) # cm**-3
     temperature = np.zeros(max_steps+1) # K
+
+    # Use the inputs to store values of important parameters at t=0
 
     height[0] = initial_height 
     density[0] = 10**log_initial_dens
-    # find electron density from initial charge states and assumed abundance of Helium
     temperature[0] = 10**log_initial_temp
 
-    # Read in the atomic data needed for the non-equilibrium
-    # ionization modeling.  Use it to set up the initial charge states
-    # which assume ionization equilibrium.
+    # Set up the initial charge states.  Assume ionization equilibrium
+    # at t=0 for the initial temperature.
 
-    AtomicData = read_atomic_data(elements, screen_output=False)
     InitialChargeStates = create_ChargeStates_dictionary(elements,temperature[0],AtomicData)
     ChargeStateList = [InitialChargeStates]
 
-    # Find the time associated with the final height
+    # Find the electron density associated with the initial time
+
+    electron_density[0] = density[0]*electron_density_factor(ChargeStateList[0], He_per_H=He_per_H)
+
+    # Find the time associated with the final height, which will be
+    # needed to figure out when the simulation should end.
 
     final_time = find_time_for_height(final_height,vfinal,vscaletime,initial_height)
 
-    # The main time loop
+    # The time loop to calculate how the charge state distributions
+    # change as the plasma blob moves away from the Sun.
 
     i = 1
+
     while (i <= max_steps):
         
-        # Determine the time step
+        # Adjust the time step [turn this into a separate function?]
 
-#        dt = 5.0  # second, need to update this!!!!!!!!!!!
+        if i==1:
+            # Pick the first time step as a fraction of the
+            # acceleration time scale
+            dt_vs = vscaletime/120.0
+            dt = dt_vs
+        elif i>1 and i < max_steps-25:
+            logTdiff = np.abs(np.log10(temperature[i-1])-np.log10(temperature[i-2]))
+            if logTdiff > 0:
+                # For most of the simulation, the difference in log T
+                # between time steps should be comparable to the log T
+                # resolution of the atomic data.
+                dt = dt * safety_factor * (logTres/logTdiff)
+                if time[i-1] <= (vscaletime/10.0) and dt > dt_vs:
+                    # At very early times when the velocity is really
+                    # slow, make sure that the time step does not
+                    # exceed 1% of vscaletime to prevent ridiculously
+                    # large time steps.
+                    dt = dt_vs
+            else:
+                # If the temperature reaches the floor value, then
+                # pick a time step based on how quickly the density is
+                # changing.
+                logdensdiff = np.abs(np.log10(density[i-1]) - np.log10(density[i-2]))
+                dt = dt * safety_factor * (0.1/logdensdiff)
+        elif i == max_steps-25:
+            # If the number of iterations is approaching the maximum
+            # number of time steps, then make dt be even for the remaining
+            # time steps.  This avoids the situation where the last time
+            # step becomes extremely long.
+            dt = (final_time - time[i-1])/(max_steps-i-1)
 
-#        dt = func_dt_eigenval(elements, AtomicData, te_list, ne_list, dt_in, 
-#                                    change_perct=1.0e-3,
-#                                    safety_factor=0.40,)
-#                         dt_ne=1.0e5,
-#                         dt_te=1.0e5,)
+        # Find the time step for the end of the simulation
 
-        if time[i-1] + dt > final_time:
+        if time[i-1] + dt > final_time or i==max_steps:
             dt = final_time - time[i-1]
             FinalStep = True
         else:
@@ -120,32 +171,61 @@ def cmeheat_track_plasma(
 
         time[i] = time[i-1] + dt
 
-        # Determine the velocity and height
+        # Determine the velocity and height using auxiliary functions
 
-        velocity[i] = find_velocity(time[i],vfinal,vscaletime)
+        velocity[i] = find_velocity(time[i], vfinal, vscaletime)
         height[i] = find_height(time[i], vfinal, vscaletime, initial_height)
 
-        # Density is a power law with height
-        #  - Still need to account for electron density
+        # The number density of Hydrogen is a power law with height.
+        # The larger the magnitude of ExpansionExponent, the more
+        # rapidly the density drops with height.
         
         density[i] = density[0] * (height[i]/height[0])**ExpansionExponent
 
-        # The temperature evolution currently includes adiabatic cooling.
-        # We may later wish to include additional terms such as
-        # radiative cooling, energy stored in ionization, and additional heating
+        # The temperature evolution currently includes adiabatic
+        # cooling.  We may later wish to include additional terms such
+        # as radiative cooling, energy stored in ionization, and
+        # different heating parameterizations.  Make sure that the
+        # temperature does not drop below a floor value.  
 
         temperature[i] = temperature[i-1]*(density[i]/density[i-1])**gamm1
 
         if temperature[i] < 10**floor_log_temp:
             temperature[i] = 10**floor_log_temp
 
-        # Ionization time advance
+        # The ionization time advance requires a mean temperature and
+        # a mean electron density.  Average these quantities from the
+        # previous and current time indices.  To calculate the ratio
+        # of the electron number density to the number density of H,
+        # use the charge states of H and He from the previous time
+        # index as an approximation.
         
         mean_temperature = 0.5*(temperature[i]+temperature[i-1])
-        mean_density = 0.5*(density[i]+density[i-1])
 
-        NewChargeStates = func_solver_eigenval(elements, AtomicData, mean_temperature, mean_density, dt, ChargeStateList[i-1])
+        mean_electron_density = 0.5*(density[i]+density[i-1]) * \
+            electron_density_factor(ChargeStateList[i-1], He_per_H=He_per_H)
+        
+        # Perform the ionization time advance using the eigenvalue
+        # method described by C. Shen et al. (2015) and references
+        # therein.  The main advantage of this method is its
+        # stability: if you take an extremely long time step, then the
+        # charge states will approach the equilibrium value for that
+        # temperature.  
+
+        NewChargeStates = func_solver_eigenval(elements, 
+                                               AtomicData, 
+                                               mean_temperature, 
+                                               mean_electron_density, 
+                                               dt, 
+                                               ChargeStateList[i-1])
+
         ChargeStateList.append(NewChargeStates.copy())
+
+        # Since the charge state distributions for this step have been
+        # found, we can finally calculate the electron number density.
+
+        electron_density[i] = density[i] * \
+            electron_density_factor(ChargeStateList[i], He_per_H=He_per_H)
 
         if FinalStep: 
             nsteps = i
@@ -153,15 +233,35 @@ def cmeheat_track_plasma(
         else:
             i = i + 1
     
-    # Create a dictionary to store the inputs and outputs
+    # Create a dictionary to store the inputs and outputs.  To access
+    # the contents of this dictionary, use output[key] where key is a
+    # string (in quotes if it is not a variable).
+    # 
+    # Accessing an input variable
+    #   output['vfinal'] --> the final velocity of the blob in km/s
+    #   output['elements'] --> the list of elements
+    #   output['elements'][0] --> the first element listed, probably 'H'
+    # 
+    # Accessing the time NumPy array:
+    #   output['time'] --> the full time array
+    #   output['time'][0] --> the starting time, which is zero
+    #   output['time'][-1] --> the final time
+    #   
+    # Accessing charge state information  
+    #   output['ChargeStates'] --> the list of charge state dictionaries for different times
+    #   output['ChargeStates'][0] --> the charge state dictionary for t=0
+    #   output['ChargeStates'][-1] --> the charge state dictionary for the final time
+    #   output['ChargeStates'][-1]['Fe'] --> the NumPy array containing charge states for iron at the final time
+    #   output['ChargeStates'][-1]['Fe'][8] --> the ionization fraction for Fe 8+ at the final time
  
     output = {
         'time':time[0:nsteps+1],
         'height':height[0:nsteps+1],
         'velocity':velocity[0:nsteps+1],
         'density':density[0:nsteps+1],
+        'electron_density':electron_density[0:nsteps+1],
         'temperature':temperature[0:nsteps+1],
-        'ChargeStateList':ChargeStateList,
+        'ChargeStates':ChargeStateList,
         'initial_height':initial_height,
         'final_height':final_height,
         'log_initial_dens':log_initial_dens,
@@ -173,13 +273,38 @@ def cmeheat_track_plasma(
         'final_time':final_time,
         'elements':elements,
         'floor_log_temp':floor_log_temp,
+        'safety_factor':safety_factor,
         }
+
+    # If requested, use a function defined elsewhere in the file to
+    # print out information about this particular simulation.  This
+    # function is also a part of the overall python package and can be
+    # used to quickly get information about inputs plus initial/final
+    # charge states.  When running multiple simulations in real time,
+    # it is generally best to set screen_output=False to minimize
+    # clutter on the screen.
 
     if screen_output:
         print_screen_output(output)
        
-    return output
+    # Print warnings for situations when the simulation may be inaccurate
 
+    if i == max_steps:
+        print()
+        print("************************************************************************")
+        print("Warning: max_steps too low! Final dt=",dt)
+        print("************************************************************************")
+        print()
+
+    if safety_factor>4 and screen_output:
+        print()
+        print("************************************************************************")
+        print("Warning: a large safety factor might prevent convergence!")
+        print("safety_factor = ",safety_factor)
+        print("************************************************************************")
+        print()
+
+    return output
 
 
 def cmeheat_grid(
@@ -330,6 +455,18 @@ def find_time_for_height_aux(time, height, vfinal, vscaletime, initial_height):
     '''
     return height - find_height(time, vfinal, vscaletime, initial_height)
 
+def electron_density_factor(ChargeStates, He_per_H=0.1):
+    '''
+    Find the ratio of the number density of electrons to the number
+    density of Hydrogen (both neutral and ionized).  This uses the
+    ChargeStates dictionary, and He_per_H is the number of Helium
+    atoms divided by the number of Hydrogen atoms.
+    '''
+    assert He_per_H >= 0 and He_per_H <= 0.3, 'Need He_per_H between 0 and 0.3 to be realistic'
+    ratio = ChargeStates['H'][1] + He_per_H*(ChargeStates['He'][1] + 2*ChargeStates['He'][2])
+    assert ratio > 0 and ratio <= 1.0 + 2.0*He_per_H, 'Returning an invalid electron density factor: '+str(ratio)
+    return ratio
+
 def print_screen_output(out):
     '''
     Function for printing out the inputs and outputs of a run.  The
@@ -401,8 +538,8 @@ def print_screen_output(out):
             
             print('Initial and final charge states for '+element)
             print()
-            print(out['ChargeStateList'][0][element])
+            print(out['ChargeStates'][0][element])
             if AtomicNumbers[element] >= 10:
                 print()
-            print(out['ChargeStateList'][out['nsteps']][element])
+            print(out['ChargeStates'][out['nsteps']][element])
             print()

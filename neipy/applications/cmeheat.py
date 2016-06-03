@@ -49,6 +49,17 @@ def cmeheat_track_plasma(
     '''
     The main program for tracking the ionization states of a blob of
     plasma as it is moving away from the low corona.  
+
+    Inputs
+
+        initial_height: the distance above the solar photosphere that
+        the blob starts that, in units of solar radii
+
+    Remaining tasks
+        -Include radiative losses
+        -Include ionization energy
+        -Include different heating mechanisms
+        -Include observational predictions (different program?)
     '''
 
     # Check to make sure that realistic values for the inputs are
@@ -133,7 +144,7 @@ def cmeheat_track_plasma(
         if i==1:
             # Pick the first time step as a fraction of the
             # acceleration time scale
-            dt_vs = vscaletime/120.0
+            dt_vs = vscaletime/200.0
             dt = dt_vs
         elif i>1 and i < max_steps-25:
             logTdiff = np.abs(np.log10(temperature[i-1])-np.log10(temperature[i-2]))

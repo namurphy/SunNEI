@@ -13,7 +13,6 @@ def read_atomic_data(elements=['H', 'He', 'C',     # twelve most abundant elemen
                                'N', 'O', 'Ne',
                                'Mg', 'Si', 'S', 
                                'Ar', 'Ca', 'Fe', ] , 
-#                     data_directory= __path__ + '/AtomicData', 
                      data_directory= 'neipy/AtomicData',   # not robust!  Works when calling from the directory that neipy is in
                      screen_output=False):
 
@@ -167,7 +166,8 @@ def create_ChargeStates_dictionary(elements,
         ChargeStates[element] = np.zeros(all_elements[element]+1)
         ChargeStates[element][0]=1
     
-    # If the temperature is specified, then 
+    # If the temperature is specified, then initialize this dictionary
+    # with the equilibrium charge states for that temperature.
 
     if temperature>0: 
         if AtomicData == None:
@@ -176,7 +176,13 @@ def create_ChargeStates_dictionary(elements,
         for element in elements:
             AtomicNumber = all_elements[element]
             ChargeStates[element] = AtomicData[element]['equistate'][TemperatureIndex]
-
+            # Make sure that the charge states are nonnegative
+            for istate in range(ChargeStates[element].size):
+                if ChargeStates[element][istate] < 1e-14:
+                    ChargeStates[element][istate] = 0.0
+                elif ChargeStates[element][istate] > 1.0 and ChargeStates[element][istate] < 1.0 + 9e-10:
+                    ChargeStates[element][istate] = 1.0
+            
     # Test that the charge state distribution for each element sums to one
 
     tol = 1e-9

@@ -2,7 +2,12 @@
 """
 Created on Sun Jun  5 09:21:40 2016
 
-@author: ccai
+@author: Chengcai & Nick
+
+Update: 2016-06-04
+        Initialization.
+        2016-06-06
+        Loops for all elements.
 """
 import neipy
 import numpy as np
@@ -18,32 +23,69 @@ run_output = neipy.cmeheat_track_plasma(log_initial_temp=6.4, log_initial_dens=9
 # plot
 #------------------------------------------------------------------------------
 # define element for showing
-element='O'
+elems = run_output['elements']
+for elem in elems:
+    #element='O'
+    element = elem
 
-natom=neipy.applications.cmeheat.AtomicNumbers[element]
-nstates = natom+1
-nsteps = run_output['nsteps']
+    natom=neipy.applications.cmeheat.AtomicNumbers[element]
+    nstates = natom+1
+    nsteps = run_output['nsteps']
  
-# set up the figure
-fig = plt.figure()   
-ax = plt.axes(xlim=(0, nstates), ylim=(0, 1))   
-line, = ax.plot([], [], lw=2)
-
-# initialization function:
-def init():
-    line.set_data([], [])   
-    return line, 
-
-# define the animate_frame function. I is the time index
-def animate_frame(i):
-    x = np.linspace(0, nstates, nstates)   
-    #y = np.sin(2 * np.pi * (x - 0.01 * i))
-    y = run_output['ChargeStates'][i][element]
-    line.set_data(x, y)
-    return line,
+    # set up the figure frame
+    fig = plt.figure()
+    ax = plt.axes(xlim=(0.5, nstates+0.5), ylim=(0.0001, 1))
+    ax.set_yscale('log')
+    ax.set_xlabel('Ion Charge States')
+    ax.set_ylabel(element+' Fractions')
+    ax.set_xticks(np.linspace(1, nstates, nstates, dtype=int))
+    line, = ax.plot([], [])
+    plt.setp(line, color='b', linewidth=2, linestyle='steps-mid')
     
-# draw thefigure
-anim = animation.FuncAnimation(fig, animate_frame, init_func=init,   
-                               frames=100, interval=20)
+    # add text and other informations
+    # text, = ...
+    
+    # initialization function, no data:
+    def init():
+        # text.set_text('')
+        line.set_data([], [])
+        return line, 
 
-plt.show()
+    # define the animate_frame function. Index 'i' is for the time index
+    def animate_frame(i):
+        x = np.linspace(1, nstates, nstates, dtype=int)   
+        #y_eqi = ?
+        y_nei = run_output['ChargeStates'][i][element]
+        line.set_data(x, y_nei)
+        
+        # display text
+        # text.set_text('Time = '+ run_output['times'] ...)
+        return line,
+    
+    # draw the figure
+    anim = animation.FuncAnimation(fig, animate_frame, init_func=init,   
+                               frames=nsteps+1, interval=20)
+
+    # Save animation into mp4 movie.
+    # Set up formatting for the movie files. 
+    # Here we choose the movie enginer 'ffmpeg'. One can find the avavliable 
+    # enginer for your system. For example, the following code will print out a 
+    # list of all available MovieWriters:
+    # import matplotlib import animation
+    # print(animation.writers.list())
+    # ['ffmpeg', 'ffmpeg_file', 'imagemagick', 'imagemagick_file', ...]
+    # If ffmpeg is not among it, you may install it first.
+    matplot_anim_Writer = animation.writers['ffmpeg']
+    my_writer = matplot_anim_Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
+
+    chargestates_moviename = element+'_chgsts.mp4'
+    anim.save(chargestates_moviename, writer=my_writer) 
+
+    # Show animation in python.
+    # plt.show()
+
+    # Clear the current window ( or figure)
+    plt.close('all')
+
+# Normal stop
+print('Normal stop in here!')

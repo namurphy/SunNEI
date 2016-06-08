@@ -20,3 +20,9 @@
 # Miscellaneous files
 /build/
 *debuglog*
+*.pdf
+*.ps
+*.png
+*.jpg
+*.jpeg
+*.gif

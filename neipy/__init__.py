@@ -13,4 +13,6 @@ from .tests import test_read_atomic_data, \
 from .applications import \
     cmeheat_track_plasma, \
     cmeheat_grid, \
-    print_screen_output
+    print_screen_output, \
+    cmeheat_plot_trajectory, \
+    cmeheat_quicklook

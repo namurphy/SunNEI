@@ -6,6 +6,8 @@ investigate the heating of coronal mass ejection (CME) plasma.
 """
 
 import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 import pandas as pd
 
 from neipy.core import func_index_te, func_dt_eigenval, func_solver_eigenval
@@ -31,7 +33,7 @@ He_per_H = 0.1 # number of Helium atoms per Hydrogen atom, regardless of ionizat
 
 def cmeheat_track_plasma(
     initial_height       = 0.1,     # in solar radii
-    final_height         = 6.0 ,    # height to output charge states
+    final_height         = 5.0,    # height to output charge states
     log_initial_temp     = 6.0,     # K
     log_initial_dens     = 10.0,    # number density in cm^-3
     vfinal               = 500.0,   # km/s
@@ -42,13 +44,13 @@ def cmeheat_track_plasma(
                 'Mg', 'Si', 'S', 
                 'Ar', 'Ca', 'Fe', ],
     screen_output=True,
-    floor_log_temp = 2,
+    floor_log_temp = 3.6,
     safety_factor = 1.0,            # safety factor for time step of order 1
     ):
     
     '''
     The main program for tracking the ionization states of a blob of
-    plasma as it is moving away from the low corona.  
+    plasma as it is moving away from the Sun.  
 
     Example
 
@@ -107,6 +109,7 @@ def cmeheat_track_plasma(
         -Include ionization energy
         -Include different heating mechanisms
         -Include observational predictions (different program?)
+        -Use photoionization to set lowest temperature somehow?
     '''
 
     # Check to make sure that realistic values for the inputs are
@@ -118,8 +121,8 @@ def cmeheat_track_plasma(
     assert vfinal >= 50.0 and vfinal <= 5000.0, \
         'Need vfinal between 50.0 and 5000.0 km/s (from 250 to 2500 km/s is best)'
 
-    assert log_initial_temp >= 4.0 and log_initial_temp <= 8.0, \
-        'Need log_initial_temp between 4.0 and 8.0 (from 4.6 to 7.0 is best)'
+    assert log_initial_temp >= 3.0 and log_initial_temp <= 8.0, \
+        'Need log_initial_temp between 3.0 and 8.0 (from 4.6 to 7.0 is best)'
 
     assert elements.__contains__('H'), \
         'The elements list must include H to calculate electron density'
@@ -285,33 +288,38 @@ def cmeheat_track_plasma(
         electron_density[i] = density[i] * \
             electron_density_factor(ChargeStateList[i], He_per_H=He_per_H)
 
+        # When calculating nsteps, note that it is the index of the
+        # final element in each array.  
+
         if FinalStep: 
-            nsteps = i
+            nsteps = i 
             break
         else:
             i = i + 1
     
-    # Create a dictionary to store the inputs and outputs.  To access
-    # the contents of this dictionary, use output[key] where key is a
-    # string (in quotes if it is not a variable).
-    # 
+    '''
+    Create a dictionary to store the inputs and outputs.  To access
+    the contents of this dictionary, use output[key] where key is a
+    string (in quotes if it is not a variable).
+     
     # Accessing an input variable
-    #   output['vfinal'] --> the final velocity of the blob in km/s
-    #   output['elements'] --> the list of elements
-    #   output['elements'][0] --> the first element listed, probably 'H'
-    # 
-    # Accessing the time NumPy array:
-    #   output['time'] --> the full time array
-    #   output['time'][0] --> the starting time, which is zero
-    #   output['time'][-1] --> the final time
-    #   
-    # Accessing charge state information  
-    #   output['ChargeStates'] --> the list of charge state dictionaries for different times
-    #   output['ChargeStates'][0] --> the charge state dictionary for t=0
-    #   output['ChargeStates'][-1] --> the charge state dictionary for the final time
-    #   output['ChargeStates'][-1]['Fe'] --> the NumPy array containing charge states for iron at the final time
-    #   output['ChargeStates'][-1]['Fe'][8] --> the ionization fraction for Fe 8+ at the final time
- 
+      output['vfinal'] --> the final velocity of the blob in km/s
+      output['elements'] --> the list of elements
+      output['elements'][0] --> the first element listed, probably 'H'
+    
+    Accessing the time NumPy array:
+      output['time'] --> the full time array
+      output['time'][0] --> the starting time, which is zero
+      output['time'][-1] --> the final time
+      
+    Accessing charge state information  
+      output['ChargeStates'] --> the list of charge state dictionaries for different times
+      output['ChargeStates'][0] --> the charge state dictionary for t=0
+      output['ChargeStates'][-1] --> the charge state dictionary for the final time
+      output['ChargeStates'][-1]['Fe'] --> the NumPy array containing charge states for iron at the final time
+      output['ChargeStates'][-1]['Fe'][8] --> the ionization fraction for Fe 8+ at the final time
+    '''
+
     output = {
         'time':time[0:nsteps+1],
         'height':height[0:nsteps+1],
@@ -599,5 +607,137 @@ def print_screen_output(out):
             print(out['ChargeStates'][0][element])
             if AtomicNumbers[element] >= 10:
                 print()
-            print(out['ChargeStates'][out['nsteps']][element])
+            print(out['ChargeStates'][-1][element])
             print()
+
+
+def cmeheat_plot_trajectory(output, 
+                            filename='trajectory.pdf'):
+    '''
+    Plot basic information about the trajectory of the plasma.
+    '''
+
+    fig = plt.figure(figsize=(8,8))
+
+    for i in range(4):
+        ax = fig.add_subplot(2,2,i+1)
+        ax.set_xlabel('Time (hours)')
+
+
+        if i+1 == 1:
+            ax.plot(output['time']/3600.0, 
+                    output['height'])
+            ax.set_ylabel('Height (solar radii)')
+        elif i+1 == 2:
+            ax.plot(output['time']/3600.0, 
+                    output['velocity'])
+            ax.set_ylabel('Velocity (km/s)')
+        elif i+1 == 3:
+            ax.plot(output['time']/3600.0,
+                    np.log10(output['density']),
+                    label='Hydrogen')
+            ax.plot(output['time']/3600.0,
+                    np.log10(output['electron_density']),
+                    label='Electrons')
+            ax.set_ylabel('Log number density (per cm3)')
+            ax.legend()
+        elif i+1 == 4:
+            ax.plot(output['time']/3600.0, 
+                    np.log10(output['temperature']))
+            ax.set_ylabel('Log temperature (K)')
+
+    fig.tight_layout(pad=1)
+
+    fig.savefig(filename)
+    plt.close(fig)
+
+def cmeheat_quicklook(output,
+                      filename='quicklook.pdf'):
+
+    # Calculate the time in hours
+
+    time = output['time']/3600.0
+    
+    fig = plt.figure(figsize=(16,12))
+
+    for i in range(4):
+        ax = fig.add_subplot(3,3,i+1)
+        ax.set_xlabel('Time (hours)')
+
+
+        if i == 0:
+            ax.plot(time, output['height'])
+            ax.set_ylabel('Height (solar radii)')
+            ax.set_title('Position')
+            ax.axis([time[0],time[-1],0.0,np.max(output['height']*1.01)])
+        elif i == 1:
+            ax.plot(time, output['velocity'])
+            ax.set_ylabel('Velocity (km/s)')
+            ax.set_title('Velocity')
+            ax.axis([time[0],time[-1],0.0,output['vfinal']*1.01])
+        elif i == 2:
+            ax.plot(time, np.log10(output['density']),
+                    label='Hydrogen')
+            ax.plot(time,
+                    np.log10(output['electron_density']),
+                    label='Electrons')
+            ax.set_ylabel('Log number density (per cm3)')
+            ax.legend(loc='best',fontsize=8.0)
+            ax.set_title('Number Density')
+            ax.axis([time[0],time[-1],
+                     np.log10(np.min(output['electron_density']))-0.05,
+                     np.log10(np.max(output['electron_density']))+0.05,
+                     ])
+        elif i == 3:
+            ax.plot(time,
+                    np.log10(output['temperature']))
+            ax.set_ylabel('Log temperature (K)')
+            ax.set_title('Temperature')
+
+    # Now plot the charge states as a function of time
+
+    for element in ['H', 'He', 'C', 'O', 'Fe']:
+        i=i+1
+
+        ChargeStateArray = MakeChargeStateArray(output,element)
+        
+        # figure out the range of charge states to plot over.  To make
+        # the legend clearer, we can skip the 
+
+        ChargeStatesToPlot = []
+
+        for j in range(AtomicNumbers[element]+1):
+            if np.max(ChargeStateArray[j,:] > 5e-4):
+                ChargeStatesToPlot.append(j)
+
+
+        ax = fig.add_subplot(3,3,i+1)
+        for j in ChargeStatesToPlot:
+            ax.plot(time,
+                    ChargeStateArray[j,:], 
+                    label=str(j)+'+')
+            ax.axis([time[0],time[-1],0.0,1.01])
+            ax.set_xlabel('Time (hours)')
+            ax.set_ylabel('Ionization Fractions')
+            ax.set_title('Charge States for '+element)
+            ax.legend(loc='best',fontsize=7.0)
+
+    fig.tight_layout(pad=1.0)
+
+    fig.savefig('quicklook.pdf')
+
+    plt.close(fig)
+
+def MakeChargeStateArray(output, element='H'):
+
+    ncharge = AtomicNumbers[element]+1
+    nsteps = output['nsteps']
+
+    ChargeStateArray = np.zeros([AtomicNumbers[element]+1,
+                                 output['nsteps']+1])
+
+    for istep in range(nsteps+1):
+        ChargeStateArray[0:ncharge,istep] = \
+            output['ChargeStates'][istep][element][0:ncharge]
+
+    return ChargeStateArray

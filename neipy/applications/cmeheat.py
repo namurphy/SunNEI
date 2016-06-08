@@ -611,18 +611,28 @@ def print_screen_output(out):
             print()
 
 def cmeheat_quicklook(output,
-                      filename='quicklook.pdf'):
-
+                      filename='quicklook.pdf',
+                      minfrac=1e-3):
+    '''
+    This function allows quick viewing of the output of a particular
+    simulation.  The first set of plots include height, velocity,
+    number density (both neutral+ionized hydrogen, and electrons), and
+    temperature.  The second set of plots show the evolution of the
+    charge states as a function of time as the plasma blob is moving
+    away from the Sun.
+    '''
     # Calculate the time in hours
 
     time = output['time']/3600.0
+
+    # First set of plots: height, velocity, density, and temperature
+    # as functions of time for this simulation
     
     fig = plt.figure(figsize=(16,12))
 
     for i in range(4):
         ax = fig.add_subplot(3,3,i+1)
         ax.set_xlabel('Time (hours)')
-
 
         if i == 0:
             ax.plot(time, output['height'])
@@ -653,33 +663,47 @@ def cmeheat_quicklook(output,
             ax.set_ylabel('Log temperature (K)')
             ax.set_title('Temperature')
 
-    # Now plot the charge states as a function of time
+    # Second set of plots: charge states as a function of time for a
+    # set of elements
 
     for element in ['H', 'He', 'C', 'O', 'Fe']:
+
         i=i+1
+
+        # Put the charge states into a NumPy array to make it easier
+        # to take slices of the data
 
         ChargeStateArray = MakeChargeStateArray(output,element)
         
-        # figure out the range of charge states to plot over.  To make
-        # the legend clearer, we can skip the 
+        # Figure out the set of charge states that need to be plotted.
+        # Choose only the charge states for which the maximum
+        # ionization fraction exceeds minfrac which is set as a
+        # keyword above with a default value of 0.001.  For heavy
+        # elements, this helps make sure the plots and legends do not
+        # get too cluttered.
 
         ChargeStatesToPlot = []
 
         for j in range(AtomicNumbers[element]+1):
-            if np.max(ChargeStateArray[j,:] > 5e-4):
+            if np.max(ChargeStateArray[j,:] > minfrac):
                 ChargeStatesToPlot.append(j)
 
 
+
         ax = fig.add_subplot(3,3,i+1)
+
+        # Plot each of the different charge states for this element
+
         for j in ChargeStatesToPlot:
             ax.plot(time,
                     ChargeStateArray[j,:], 
                     label=str(j)+'+')
-            ax.axis([time[0],time[-1],0.0,1.01])
-            ax.set_xlabel('Time (hours)')
-            ax.set_ylabel('Ionization Fractions')
-            ax.set_title('Charge States for '+element)
-            ax.legend(loc='best',fontsize=7.0)
+            
+        ax.axis([time[0],time[-1],0.0,1.01])
+        ax.set_xlabel('Time (hours)')
+        ax.set_ylabel('Ionization Fractions')
+        ax.set_title('Charge States for '+element)
+        ax.legend(loc='best',fontsize=7.0)
 
     fig.tight_layout(pad=1.0)
 

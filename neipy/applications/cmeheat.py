@@ -610,47 +610,6 @@ def print_screen_output(out):
             print(out['ChargeStates'][-1][element])
             print()
 
-
-def cmeheat_plot_trajectory(output, 
-                            filename='trajectory.pdf'):
-    '''
-    Plot basic information about the trajectory of the plasma.
-    '''
-
-    fig = plt.figure(figsize=(8,8))
-
-    for i in range(4):
-        ax = fig.add_subplot(2,2,i+1)
-        ax.set_xlabel('Time (hours)')
-
-
-        if i+1 == 1:
-            ax.plot(output['time']/3600.0, 
-                    output['height'])
-            ax.set_ylabel('Height (solar radii)')
-        elif i+1 == 2:
-            ax.plot(output['time']/3600.0, 
-                    output['velocity'])
-            ax.set_ylabel('Velocity (km/s)')
-        elif i+1 == 3:
-            ax.plot(output['time']/3600.0,
-                    np.log10(output['density']),
-                    label='Hydrogen')
-            ax.plot(output['time']/3600.0,
-                    np.log10(output['electron_density']),
-                    label='Electrons')
-            ax.set_ylabel('Log number density (per cm3)')
-            ax.legend()
-        elif i+1 == 4:
-            ax.plot(output['time']/3600.0, 
-                    np.log10(output['temperature']))
-            ax.set_ylabel('Log temperature (K)')
-
-    fig.tight_layout(pad=1)
-
-    fig.savefig(filename)
-    plt.close(fig)
-
 def cmeheat_quicklook(output,
                       filename='quicklook.pdf'):
 

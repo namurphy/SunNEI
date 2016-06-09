@@ -44,6 +44,7 @@ def cmeheat_track_plasma(
                 'Mg', 'Si', 'S', 
                 'Ar', 'Ca', 'Fe', ],
     screen_output=True,
+    quicklook=False,
     floor_log_temp = 3.6,
     safety_factor = 1.0,            # safety factor for time step of order 1
     ):
@@ -353,6 +354,11 @@ def cmeheat_track_plasma(
     if screen_output:
         print_screen_output(output)
        
+    if quicklook:
+        cmeheat_quicklook(output,
+                          filename='quicklook.pdf',
+                          minfrac=1e-3)
+        
     # Print warnings for situations when the simulation may be inaccurate
 
     if i == max_steps:
@@ -463,7 +469,8 @@ def cmeheat_grid(
 
                     # Print information about each simulation
 
-                    print('{0:>3d}{1:>3d}{2:>3d}{3:>3d}   V={4:>7.1f}  log T={5:>5.2f}  log n={6:>5.2f}  alpha={7:>5.2f}'.format(
+                    print('{0:>3d}{1:>3d}{2:>3d}{3:>3d}   V={4:>7.1f}  log T={5:>5.2f}'+\
+                              '  log n={6:>5.2f}  alpha={7:>5.2f}'.format(
                             jv,jt,jd,je,
                             gridinputs['V'][jv],
                             gridinputs['T'][jt],
@@ -611,6 +618,7 @@ def print_screen_output(out):
             print()
 
 def cmeheat_quicklook(output,
+                      xaxis='height',
                       filename='quicklook.pdf',
                       minfrac=1e-3):
     '''
@@ -623,7 +631,12 @@ def cmeheat_quicklook(output,
     '''
     # Calculate the time in hours
 
-    time = output['time']/3600.0
+    if xaxis[0]=='h':
+        x = output['height']
+        xlabel = 'Height (Solar Radii)'
+    elif xaxis[0]=='t':
+        x = output['time']/3600.0
+        xlabel = 'Time (hours)'
 
     # First set of plots: height, velocity, density, and temperature
     # as functions of time for this simulation
@@ -632,38 +645,42 @@ def cmeheat_quicklook(output,
 
     for i in range(4):
         ax = fig.add_subplot(3,3,i+1)
-        ax.set_xlabel('Time (hours)')
+        ax.set_xlabel(xlabel)
 
         if i == 0:
-            ax.plot(time, output['height'])
+            ax.plot(output['time']/3600.0, output['height'])
             ax.set_ylabel('Height (solar radii)')
             ax.set_title('Position')
-            ax.axis([time[0],time[-1],0.0,np.max(output['height']*1.01)])
+            ax.axis([x[0],x[-1],0.0,np.max(x)])
+            ax.axis()
         elif i == 1:
-            ax.plot(time, output['velocity'])
+            ax.plot(x, output['velocity'])
             ax.set_ylabel('Velocity (km/s)')
             ax.set_title('Velocity')
-            ax.axis([time[0],time[-1],0.0,output['vfinal']*1.01])
+            ax.axis([x[0],x[-1],0.0,output['vfinal']*1.0])
         elif i == 2:
-            ax.plot(time, np.log10(output['density']),
+            ax.plot(x, np.log10(output['density']),
                     label='Hydrogen')
-            ax.plot(time,
+            ax.plot(x,
                     np.log10(output['electron_density']),
                     label='Electrons')
             ax.set_ylabel('Log number density (per cm3)')
             ax.legend(loc='best',fontsize=8.0)
             ax.set_title('Number Density')
-            ax.axis([time[0],time[-1],
-                     np.log10(np.min(output['electron_density']))-0.05,
-                     np.log10(np.max(output['electron_density']))+0.05,
+            ax.axis([x[0],x[-1],
+                     np.log10(np.min(output['electron_density'])),
+                     np.log10(np.max(output['electron_density'])),
                      ])
         elif i == 3:
-            ax.plot(time,
+            ax.plot(x,
                     np.log10(output['temperature']))
             ax.set_ylabel('Log temperature (K)')
             ax.set_title('Temperature')
+            ax.axis([x[0],x[-1],
+                    np.min( np.log10(output['temperature'])-0.02 ),
+                    np.max( np.log10(output['temperature']) )])
 
-    # Second set of plots: charge states as a function of time for a
+    # Second set of plots: charge states as a function of x for a
     # set of elements
 
     for element in ['H', 'He', 'C', 'O', 'Fe']:
@@ -695,12 +712,12 @@ def cmeheat_quicklook(output,
         # Plot each of the different charge states for this element
 
         for j in ChargeStatesToPlot:
-            ax.plot(time,
+            ax.plot(x,
                     ChargeStateArray[j,:], 
                     label=str(j)+'+')
             
-        ax.axis([time[0],time[-1],0.0,1.01])
-        ax.set_xlabel('Time (hours)')
+        ax.axis([x[0],x[-1],0.0,1.00])
+        ax.set_xlabel(xlabel)
         ax.set_ylabel('Ionization Fractions')
         ax.set_title('Charge States for '+element)
         ax.legend(loc='best',fontsize=7.0)

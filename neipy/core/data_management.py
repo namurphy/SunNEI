@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import os
 
-all_elements = pd.Series(np.arange(28)+1,
+AtomicNumbers = pd.Series(np.arange(28)+1,
                          index=['H' ,'He',
                                 'Li','Be','B' ,'C' ,'N' ,'O' ,'F' ,'Ne',
                                 'Na','Mg','Al','Si','P' ,'S' ,'Cl','Ar',
@@ -77,7 +77,7 @@ def read_atomic_data(elements=['H', 'He', 'C',     # twelve most abundant elemen
         if screen_output:
             print('read_atomic_data: '+element)
 
-        AtomicNumber = all_elements[element]
+        AtomicNumber = AtomicNumbers[element]
         nstates = AtomicNumber + 1
 
         filename = data_directory + '/' + element.lower() + 'eigen.dat'
@@ -163,7 +163,7 @@ def create_ChargeStates_dictionary(elements,
     # assuming it is entirely neutral
 
     for element in elements:
-        ChargeStates[element] = np.zeros(all_elements[element]+1)
+        ChargeStates[element] = np.zeros(AtomicNumbers[element]+1)
         ChargeStates[element][0]=1
     
     # If the temperature is specified, then initialize this dictionary
@@ -174,7 +174,7 @@ def create_ChargeStates_dictionary(elements,
             AtomicData = read_atomic_data(elements)
         TemperatureIndex = func_index_te(temperature, AtomicData['temperatures'])
         for element in elements:
-            AtomicNumber = all_elements[element]
+            AtomicNumber = AtomicNumbers[element]
             ChargeStates[element] = AtomicData[element]['equistate'][TemperatureIndex]
             # Make sure that the charge states are nonnegative
             for istate in range(ChargeStates[element].size):
@@ -189,5 +189,38 @@ def create_ChargeStates_dictionary(elements,
     for element in elements:
         val = np.sum(ChargeStates[element])
         assert (val>1-tol) & (val<1+tol), 'Initial charge states do not sum to one for '+element
+
+    return ChargeStates
+
+
+def MakeChargeStateArray(output, element='H'):
+    '''
+    Program to create a NumPy array for the charge states of an
+    element over the course of a simulation.
+
+    The first input is the array created by 
+    '''
+    ncharge = AtomicNumbers[element]+1
+    nsteps = output['nsteps']
+
+    ChargeStateArray = np.zeros([AtomicNumbers[element]+1,
+                                 output['nsteps']+1])
+
+    for istep in range(nsteps+1):
+        ChargeStateArray[0:ncharge,istep] = \
+            output['ChargeStates'][istep][element][0:ncharge]
+
+    return ChargeStateArray
+
+def ReformatChargeStateList(ChargeStateList, elements, nsteps):
+
+    ChargeStates = {}  
+
+    for element in elements:        
+        ncharge = AtomicNumbers[element]+1
+        ChargeStates[element] = np.zeros([nsteps+1,ncharge])
+        for istep in range(nsteps+1):
+            ChargeStates[element][istep,0:ncharge] = \
+                ChargeStateList[istep][element][0:ncharge]
 
     return ChargeStates

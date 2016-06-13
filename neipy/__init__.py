@@ -5,7 +5,8 @@ from .core import \
     func_index_te, \
     func_dt_eigenval, \
     func_solver_eigenval, \
-    create_ChargeStates_dictionary
+    create_ChargeStates_dictionary, \
+    ReformatChargeStateList
 
 from .tests import test_read_atomic_data, \
     test_create_ChargeStates_dictionary

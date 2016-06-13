@@ -11,7 +11,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from neipy.core import func_index_te, func_dt_eigenval, func_solver_eigenval
-from neipy.core import read_atomic_data, create_ChargeStates_dictionary
+from neipy.core import read_atomic_data, create_ChargeStates_dictionary, \
+    ReformatChargeStateList
 
 # Definining to be used constants
 
@@ -33,19 +34,20 @@ He_per_H = 0.1 # number of Helium atoms per Hydrogen atom, regardless of ionizat
 
 def cmeheat_track_plasma(
     initial_height       = 0.1,     # in solar radii
-    final_height         = 5.0,    # height to output charge states
-    log_initial_temp     = 6.0,     # K
+    final_height         = 5.0,     # height to output charge states
+    log_initial_temp     = 6.0,     # logarithm of initial temperature in K
     log_initial_dens     = 10.0,    # number density in cm^-3
     vfinal               = 500.0,   # km/s
     vscaletime           = 1800.0,  # s
     ExpansionExponent    = -2.5,    # dimensionless
+    floor_log_temp       = 4.0,     # logarithm of floor temperature in K
     elements = ['H', 'He', 'C',     # elements to be modeled
                 'N', 'O', 'Ne',
                 'Mg', 'Si', 'S', 
                 'Ar', 'Ca', 'Fe', ],
+    RadiativeLosses = False,
     screen_output=True,
     quicklook=False,
-    floor_log_temp = 3.6,
     safety_factor = 1.0,            # safety factor for time step of order 1
     ):
     
@@ -297,6 +299,25 @@ def cmeheat_track_plasma(
             break
         else:
             i = i + 1
+
+    '''
+    The charge state information that was just created is a list of
+    dictionaries of NumPy arrays.  The way to access data is:
+    
+    ChargeStateList[TimeStepIndex][element][ChargeStateIndex]
+
+    However, this structure is not particularly convenient since it
+    does not allow indexing of multiple time steps.  Next we change
+    the format so that we can access data like:
+
+    ChargeStates[element][TimeStepIndex,ChargeStateIndex]
+
+    Here, ChargeStates is a dictionary where the keys are each element
+    and access a NumPy array that stores the charge state evolution
+    over time for that element.
+    '''
+    
+    ChargeStates = ReformatChargeStateList(ChargeStateList, elements, nsteps)
     
     '''
     Create a dictionary to store the inputs and outputs.  To access
@@ -314,11 +335,11 @@ def cmeheat_track_plasma(
       output['time'][-1] --> the final time
       
     Accessing charge state information  
-      output['ChargeStates'] --> the list of charge state dictionaries for different times
-      output['ChargeStates'][0] --> the charge state dictionary for t=0
-      output['ChargeStates'][-1] --> the charge state dictionary for the final time
-      output['ChargeStates'][-1]['Fe'] --> the NumPy array containing charge states for iron at the final time
-      output['ChargeStates'][-1]['Fe'][8] --> the ionization fraction for Fe 8+ at the final time
+      output['ChargeStates'] --> a dictionary containing charge state arrays for different elements
+      output['ChargeStates']['Fe'] --> the NumPy array containing the charge state evolution for iron
+      output['ChargeStates']['Fe'][0,:] --> the iron charge states for t=0
+      output['ChargeStates']['Fe'][0,1] --> the ionization fraction of singly ionized iron for t=0
+      output['ChargeStates']['Fe'][-1,0] --> the ionization fraction of neutral iron for the final time
     '''
 
     output = {
@@ -328,7 +349,7 @@ def cmeheat_track_plasma(
         'density':density[0:nsteps+1],
         'electron_density':electron_density[0:nsteps+1],
         'temperature':temperature[0:nsteps+1],
-        'ChargeStates':ChargeStateList,
+        'ChargeStates':ChargeStates,
         'initial_height':initial_height,
         'final_height':final_height,
         'log_initial_dens':log_initial_dens,
@@ -611,10 +632,10 @@ def print_screen_output(out):
             
             print('Initial and final charge states for '+element)
             print()
-            print(out['ChargeStates'][0][element])
+            print(out['ChargeStates'][element][0,:])
             if AtomicNumbers[element] >= 10:
                 print()
-            print(out['ChargeStates'][-1][element])
+            print(out['ChargeStates'][element][-1,:])
             print()
 
 def cmeheat_quicklook(output,
@@ -686,11 +707,6 @@ def cmeheat_quicklook(output,
     for element in ['H', 'He', 'C', 'O', 'Fe']:
 
         i=i+1
-
-        # Put the charge states into a NumPy array to make it easier
-        # to take slices of the data
-
-        ChargeStateArray = MakeChargeStateArray(output,element)
         
         # Figure out the set of charge states that need to be plotted.
         # Choose only the charge states for which the maximum
@@ -702,7 +718,7 @@ def cmeheat_quicklook(output,
         ChargeStatesToPlot = []
 
         for j in range(AtomicNumbers[element]+1):
-            if np.max(ChargeStateArray[j,:] > minfrac):
+            if np.max(output['ChargeStates'][element][:,j] > minfrac):
                 ChargeStatesToPlot.append(j)
 
 
@@ -713,7 +729,7 @@ def cmeheat_quicklook(output,
 
         for j in ChargeStatesToPlot:
             ax.plot(x,
-                    ChargeStateArray[j,:], 
+                    output['ChargeStates'][element][:,j], 
                     label=str(j)+'+')
             
         ax.axis([x[0],x[-1],0.0,1.00])
@@ -727,17 +743,3 @@ def cmeheat_quicklook(output,
     fig.savefig('quicklook.pdf')
 
     plt.close(fig)
-
-def MakeChargeStateArray(output, element='H'):
-
-    ncharge = AtomicNumbers[element]+1
-    nsteps = output['nsteps']
-
-    ChargeStateArray = np.zeros([AtomicNumbers[element]+1,
-                                 output['nsteps']+1])
-
-    for istep in range(nsteps+1):
-        ChargeStateArray[0:ncharge,istep] = \
-            output['ChargeStates'][istep][element][0:ncharge]
-
-    return ChargeStateArray

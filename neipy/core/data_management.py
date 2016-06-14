@@ -193,14 +193,28 @@ def create_ChargeStates_dictionary(elements,
     return ChargeStates
 
 def ReformatChargeStateList(ChargeStateList, elements, nsteps):
+    '''
+    Changes the way charge state data is stored.  
+
+    The original time advance creates a list of the charge state
+    dictionaries so that charge state information is accessed like:
+
+    ChargeStateList[TimeIndex][element][ChargeStateIndex]
+
+    However, this interface does not allow us to use a range of time
+    indices for a particular element.  This function takes a list of
+    charge state dictionaries from the original time advance, and
+    changes them into a dictionary with each element as a key to
+    access a NumPy array with the charge state information over time.
+
+    ChargeStates[element][TimeIndex,ChargeStateIndex]
+    '''
 
     ChargeStates = {}  
-
     for element in elements:        
         ncharge = AtomicNumbers[element]+1
         ChargeStates[element] = np.zeros([nsteps+1,ncharge])
         for istep in range(nsteps+1):
             ChargeStates[element][istep,0:ncharge] = \
                 ChargeStateList[istep][element][0:ncharge]
-
     return ChargeStates

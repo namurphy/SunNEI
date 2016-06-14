@@ -192,26 +192,6 @@ def create_ChargeStates_dictionary(elements,
 
     return ChargeStates
 
-
-def MakeChargeStateArray(output, element='H'):
-    '''
-    Program to create a NumPy array for the charge states of an
-    element over the course of a simulation.
-
-    The first input is the array created by 
-    '''
-    ncharge = AtomicNumbers[element]+1
-    nsteps = output['nsteps']
-
-    ChargeStateArray = np.zeros([AtomicNumbers[element]+1,
-                                 output['nsteps']+1])
-
-    for istep in range(nsteps+1):
-        ChargeStateArray[0:ncharge,istep] = \
-            output['ChargeStates'][istep][element][0:ncharge]
-
-    return ChargeStateArray
-
 def ReformatChargeStateList(ChargeStateList, elements, nsteps):
 
     ChargeStates = {}  

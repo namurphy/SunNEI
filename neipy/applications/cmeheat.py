@@ -14,23 +14,28 @@ from neipy.core import func_index_te, func_dt_eigenval, func_solver_eigenval
 from neipy.core import read_atomic_data, create_ChargeStates_dictionary, \
     ReformatChargeStateList
 
-# Definining to be used constants
+# Definining constants
 
-RSun = 6.957e5 # km
-gamma = 5.0/3.0 # ratio of specific heats
-gamm1 = gamma-1.0
+RSun = 6.957e5    # radius of the Sun in kilometers
+gamma = 5.0/3.0   # ratio of specific heats
+gamm1 = gamma-1.0 # 
 
 # This pandas series allows a shortcut to finding the atomic number of
-# an element.  For example, AtomicNumbers['Fe'] will return 26.
+# an element.  For example, AtomicNumbers['Fe'] will return 26.  The
+# number of charge states for an element will be the atomic number
+# plus one.
 
 AtomicNumbers = pd.Series(np.arange(28)+1,
                           index=['H' ,'He',
                                  'Li','Be','B' ,'C' ,'N' ,'O' ,'F' ,'Ne',
                                  'Na','Mg','Al','Si','P' ,'S' ,'Cl','Ar',
-                                 'K' ,'Ca','Sc','Ti','V' ,'Cr','Mn','Fe','Co','Ni',
+                                 'K' ,'Ca','Sc','Ti','V' ,'Cr','Mn','Fe',
+                                 'Co','Ni',
                                  ])
 
-He_per_H = 0.1 # number of Helium atoms per Hydrogen atom, regardless of ionization state
+# number of Helium atoms per Hydrogen atom, regardless of ionization state
+
+He_per_H = 0.1 
 
 def cmeheat_track_plasma(
     initial_height       = 0.1,     # in solar radii
@@ -48,7 +53,7 @@ def cmeheat_track_plasma(
     RadiativeLosses = False,
     screen_output=True,
     quicklook=False,
-    safety_factor = 1.0,            # safety factor for time step of order 1
+    safety_factor = 1.0,            # multiplicative factor for time step
     ):
     
     '''
@@ -104,8 +109,39 @@ def cmeheat_track_plasma(
 
         safety_factor: a value of order 1 that acts as a coefficient
         for how the time step is calculated.  For high quality runs,
-        use a safety_factor of perhaps 0.3.  For practice runs, you may
-        use a safety factor of 2 or 3 to save computational time.  
+        use a safety_factor of perhaps 0.3.  For practice runs, you
+        may use a safety factor of 2 or 3 to save computational time.
+
+    The output is a a dictionary with the following keys
+
+        time: time values in seconds (NumPy array)
+
+        height: height values in solar radii (NumPy array)
+
+        velocity: velocity values in km/s (NumPy array)
+
+        density: number density of neutral plus ionized hydrogen in
+        units of particles per cm^3 (NumPy array)
+
+        electron_density: number density of electrons in units of
+        particles per cm^3 (NumPy array)
+
+        temperature: temperature in Kelvin (NumPy array)
+
+        ChargeStates: dictionary containing the evolution of the
+        charge states with each element as a key to access a NumPy
+        array containing 
+
+        nsteps: the number of steps taken over the course of the
+        simulation, not including t=0.
+
+        final_time: The time the plasma reaches the final height
+
+    The following keys in output are the same as the inputs:
+
+        initial_height, final_height, log_initial_dens,
+        log_initial_temp, ExpansionExponent, vfinal, vscaletime,
+        elements, floor_log_temp, and safety_factor
 
     Remaining tasks
         -Include radiative losses
@@ -119,7 +155,8 @@ def cmeheat_track_plasma(
     # being used.  Suggest appropriate ranges, if needed.
  
     assert initial_height >= 0.01 and initial_height <= 0.5, \
-        'Choose an initial height between 0.01 and 0.5 RSun (from 0.05 to 0.1 is best)'
+        'Choose an initial height between 0.01 and 0.5 RSun'+\
+        '(from 0.05 to 0.1 is best)'
 
     assert vfinal >= 50.0 and vfinal <= 5000.0, \
         'Need vfinal between 50.0 and 5000.0 km/s (from 250 to 2500 km/s is best)'
@@ -178,7 +215,8 @@ def cmeheat_track_plasma(
 
     # Find the electron density associated with the initial time
 
-    electron_density[0] = density[0]*electron_density_factor(ChargeStateList[0], He_per_H=He_per_H)
+    electron_density[0] = density[0]*electron_density_factor(ChargeStateList[0], 
+                                                             He_per_H=He_per_H)
 
     # Find the time associated with the final height, which will be
     # needed to figure out when the simulation should end.
@@ -216,7 +254,8 @@ def cmeheat_track_plasma(
                 # If the temperature reaches the floor value, then
                 # pick a time step based on how quickly the density is
                 # changing.
-                logdensdiff = np.abs(np.log10(density[i-1]) - np.log10(density[i-2]))
+                logdensdiff = np.abs(np.log10(density[i-1]) - \
+                                     np.log10(density[i-2]))
                 dt = dt * safety_factor * (0.1/logdensdiff)
         elif i == max_steps-25:
             # If the number of iterations is approaching the maximum
@@ -317,7 +356,9 @@ def cmeheat_track_plasma(
     over time for that element.
     '''
     
-    ChargeStates = ReformatChargeStateList(ChargeStateList, elements, nsteps)
+    ChargeStates = ReformatChargeStateList(ChargeStateList, 
+                                           elements, 
+                                           nsteps)
     
     '''
     Create a dictionary to store the inputs and outputs.  To access
@@ -335,11 +376,15 @@ def cmeheat_track_plasma(
       output['time'][-1] --> the final time
       
     Accessing charge state information  
-      output['ChargeStates'] --> a dictionary containing charge state arrays for different elements
-      output['ChargeStates']['Fe'] --> the NumPy array containing the charge state evolution for iron
-      output['ChargeStates']['Fe'][0,:] --> the iron charge states for t=0
-      output['ChargeStates']['Fe'][0,1] --> the ionization fraction of singly ionized iron for t=0
-      output['ChargeStates']['Fe'][-1,0] --> the ionization fraction of neutral iron for the final time
+      output['ChargeStates'] --> a dictionary containing charge state 
+          arrays for different elements
+      output['ChargeStates']['Fe'] --> NumPy array containing the 
+          charge state evolution for iron
+      output['ChargeStates']['Fe'][0,:] --> iron charge states for t=0
+      output['ChargeStates']['Fe'][0,1] --> ionization fraction of
+          singly ionized iron for t=0
+      output['ChargeStates']['Fe'][-1,0] --> the ionization fraction
+          of neutral iron for the final time
     '''
 
     output = {
@@ -364,13 +409,15 @@ def cmeheat_track_plasma(
         'safety_factor':safety_factor,
         }
 
-    # If requested, use a function defined elsewhere in the file to
-    # print out information about this particular simulation.  This
-    # function is also a part of the overall python package and can be
-    # used to quickly get information about inputs plus initial/final
-    # charge states.  When running multiple simulations in real time,
-    # it is generally best to set screen_output=False to minimize
-    # clutter on the screen.
+    '''
+    If requested, use a function defined elsewhere in the file to
+    print out information about this particular simulation.  This
+    function is also a part of the overall python package and can be
+    used to quickly get information about inputs plus initial/final
+    charge states.  When running multiple simulations in real time, it
+    is generally best to set screen_output=False to minimize clutter
+    on the screen.
+    '''
 
     if screen_output:
         print_screen_output(output)
@@ -412,8 +459,6 @@ def cmeheat_grid(
     ntemp = 2,
     ndens = 2,
     nexp = 2,                       
-    max_steps = 2500, 
-    dt = 20.0, 
     elements = ['H', 'He', 'C',     # elements to be modeled
                 'N', 'O', 'Ne',
                 'Mg', 'Si', 'S', 
@@ -422,7 +467,8 @@ def cmeheat_grid(
     ):
 
     '''
-    Program: cmeheat_grid
+    This program runs a grid of simulations.  This program works, but
+    still requires improvements and comments.
     '''
     
     print()
@@ -481,6 +527,9 @@ def cmeheat_grid(
     # Is there a better way to store this than a list of simulations???
     #  Need to put in jv, jt, jd, je
 
+    formatting_string = '{0:>3d}{1:>3d}{2:>3d}{3:>3d}   V={4:>7.1f}  log T={5:>5.2f}   log n={6:>5.2f}  alpha={7:>5.2f}'
+
+
     list_of_simulations = []
 
     for jv in range(nvel):            
@@ -490,8 +539,7 @@ def cmeheat_grid(
 
                     # Print information about each simulation
 
-                    print('{0:>3d}{1:>3d}{2:>3d}{3:>3d}   V={4:>7.1f}  log T={5:>5.2f}'+\
-                              '  log n={6:>5.2f}  alpha={7:>5.2f}'.format(
+                    print(formatting_string.format(
                             jv,jt,jd,je,
                             gridinputs['V'][jv],
                             gridinputs['T'][jt],
@@ -506,8 +554,6 @@ def cmeheat_grid(
                         vfinal = gridinputs['V'][jv],
                         vscaletime = vscaletime,
                         ExpansionExponent = gridinputs['e'][je],
-                        max_steps = max_steps,
-                        dt = dt,
                         elements = elements,
                         screen_output = False,
                         floor_log_temp = floor_log_temp,

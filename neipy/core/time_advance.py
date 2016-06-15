@@ -4,6 +4,7 @@ NEI
 This module contains the core non-equilibrium ionization routines.
 """
 
+from __future__ import print_function
 import numpy as np
 import pandas as pd
 

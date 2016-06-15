@@ -5,6 +5,8 @@ This module contains non-equilibrium ionization routines to
 investigate the heating of coronal mass ejection (CME) plasma.
 """
 
+from __future__ import print_function
+
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt

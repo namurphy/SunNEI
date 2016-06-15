@@ -10,6 +10,7 @@ Purpose: test
 #------------------------------------------------------------------------------
 # Tests
 #------------------------------------------------------------------------------
+from __future__ import print_function
 import numpy as np
 import neipy
 import matplotlib.pyplot as plt

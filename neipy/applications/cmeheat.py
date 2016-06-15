@@ -425,7 +425,7 @@ def cmeheat_track_plasma(
     if quicklook:
         cmeheat_quicklook(output,
                           filename='quicklook.pdf',
-                          minfrac=1e-3)
+                          minfrac=1e-2)
         
     # Print warnings for situations when the simulation may be inaccurate
 
@@ -687,7 +687,8 @@ def print_screen_output(out):
 def cmeheat_quicklook(output,
                       xaxis='height',
                       filename='quicklook.pdf',
-                      minfrac=1e-3):
+                      minfrac=1e-3,
+                      ):
     '''
     This function allows quick viewing of the output of a particular
     simulation.  The first set of plots include height, velocity,
@@ -705,35 +706,43 @@ def cmeheat_quicklook(output,
         x = output['time']/3600.0
         xlabel = 'Time (hours)'
 
+    fontsize_title = 9.0
+    fontsize_labels = 8.0
+    fontsize_legend = 7.0
+    fontsize_ticks = 7.0
+
     # First set of plots: height, velocity, density, and temperature
     # as functions of time for this simulation
     
-    fig = plt.figure(figsize=(16,12))
+    fig = plt.figure(figsize=(11,8.5))
 
     for i in range(4):
         ax = fig.add_subplot(3,3,i+1)
-        ax.set_xlabel(xlabel)
-
+        ax.set_xlabel(xlabel, fontsize=fontsize_labels)
+        ax.tick_params(axis='both', labelsize=fontsize_ticks)
         if i == 0:
             ax.plot(output['time']/3600.0, output['height'])
             ax.set_ylabel('Height (solar radii)')
-            ax.set_title('Position')
-            ax.axis([x[0],x[-1],0.0,np.max(x)])
-            ax.axis()
+            ax.set_title('Position',fontsize=fontsize_title)
+#            ax.axis([output['time'][0]/3600.0,x[-1],0.0,np.max(x)])
+            ax.axis([output['time'][0]/3600.0,output['time'][-1]/3600.0,
+                     0.0, output['final_height']])
+            ax.set_xlabel('Time (hours)', fontsize=fontsize_labels)
         elif i == 1:
             ax.plot(x, output['velocity'])
-            ax.set_ylabel('Velocity (km/s)')
-            ax.set_title('Velocity')
+            ax.set_ylabel('Velocity (km/s)', fontsize=fontsize_labels)
+            ax.set_title('Velocity',fontsize=fontsize_title)
             ax.axis([x[0],x[-1],0.0,output['vfinal']*1.0])
         elif i == 2:
             ax.plot(x, np.log10(output['density']),
                     label='Hydrogen')
             ax.plot(x,
                     np.log10(output['electron_density']),
-                    label='Electrons')
-            ax.set_ylabel('Log number density (per cm3)')
-            ax.legend(loc='best',fontsize=8.0)
-            ax.set_title('Number Density')
+                    label='Electrons', 
+                    linestyle='--')
+            ax.set_ylabel('Log number density (per cm3)', fontsize=fontsize_labels)
+            ax.legend(loc='best',fontsize=fontsize_legend, handlelength=3)
+            ax.set_title('Number Density', fontsize=fontsize_title)
             ax.axis([x[0],x[-1],
                      np.log10(np.min(output['electron_density'])),
                      np.log10(np.max(output['electron_density'])),
@@ -741,11 +750,50 @@ def cmeheat_quicklook(output,
         elif i == 3:
             ax.plot(x,
                     np.log10(output['temperature']))
-            ax.set_ylabel('Log temperature (K)')
-            ax.set_title('Temperature')
+            ax.set_ylabel('Log temperature (K)', fontsize=fontsize_labels)
+            ax.set_title('Temperature',fontsize=fontsize_title)
             ax.axis([x[0],x[-1],
                     np.min( np.log10(output['temperature'])-0.02 ),
                     np.max( np.log10(output['temperature']) )])
+
+
+    # Plotting style preliminaries for second set of plots
+
+    # Choose a set of linestyles to be cycled around
+
+#    styles = ['-']
+    styles = ['-', '-.', '--',]
+
+    # Make sure the lines are thick enough if there are dots and/or dashes
+
+    if styles.__contains__(':') or styles.__contains__('-.'):
+        ChargeStateLineWidth=1.3
+    elif styles.__contains('--'):
+        ChargeStateLineWidth=1.2
+    else:
+        ChargeStateLineWidth=1.12
+
+    # Use a colorblind friendly palette 
+    # For the moment, use one adapted from:
+    # http://www.somersault1824.com/tips-for-designing-scientific-figures-for-color-blind-readers/
+
+    colors = np.array([
+        [  0,   0,   0],
+        [  0,  73,  73],
+        [0  , 146, 146],
+        [255, 109, 182],
+        [255, 182, 119],
+        [ 73,   0, 146],
+        [  0, 109, 219],
+        [182, 109, 255],
+        [109, 182, 255],
+        [182, 219, 255],
+        [146,   0,   0],
+        [146,  73,   0],
+        [219, 209,   0],
+        [ 36, 255,  36],
+        [255, 255, 109],
+        ])/255.0
 
     # Second set of plots: charge states as a function of x for a
     # set of elements
@@ -767,24 +815,38 @@ def cmeheat_quicklook(output,
             if np.max(output['ChargeStates'][element][:,j] > minfrac):
                 ChargeStatesToPlot.append(j)
 
-
-
         ax = fig.add_subplot(3,3,i+1)
 
         # Plot each of the different charge states for this element
 
         for j in ChargeStatesToPlot:
             ax.plot(x,
-                    output['ChargeStates'][element][:,j], 
+                    output['ChargeStates'][element][:,j],
+                    linestyle=styles[j % len(styles)],
+                    color=colors[j % len(colors[:,0]),:],
+                    linewidth=ChargeStateLineWidth,
                     label=str(j)+'+')
             
         ax.axis([x[0],x[-1],0.0,1.00])
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel('Ionization Fractions')
-        ax.set_title('Charge States for '+element)
-        ax.legend(loc='best',fontsize=7.0)
+        ax.set_xlabel(xlabel,fontsize=fontsize_labels)
+        ax.set_ylabel('Ionization Fractions',fontsize=fontsize_labels)
+        ax.set_title('Charge States for '+element,fontsize=fontsize_title)
+        ax.tick_params(axis='both', labelsize=fontsize_ticks)
+        
+        if len(ChargeStatesToPlot)<4:
+            ncol=1
+        elif len(ChargeStatesToPlot)<9:
+            ncol=2
+        else:
+            ncol=3
 
-    fig.tight_layout(pad=1.0)
+        ax.legend(loc='best', 
+                  fontsize=fontsize_legend, 
+                  ncol=ncol, 
+                  handlelength=3,
+                  columnspacing=0.6)
+
+    fig.tight_layout(pad=0.6)
 
     fig.savefig('quicklook.pdf')
 

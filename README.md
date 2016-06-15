@@ -1,7 +1,3 @@
-# CMEheat
-Non-equilibrium ionization modeling of coronal mass ejections
+# SunNEI
+Non-equilibrium ionization modeling of the solar corona
 
-## Development tasks
-
-Figure out the best way to store charge state information...a dictionary?
-Make sure time_advance routines use the correct indices

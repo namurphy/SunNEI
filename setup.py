@@ -2,12 +2,12 @@
 
 from distutils.core import setup
 
-setup(name="NEI",
-      version="0.0.dev",
-      description="Non-equilibrium ionization modeling package",
-      url="https://github.com/namurphy/CMEheat",
-      author="Nick Murphy and Chengcai Shen",
+setup(name="SunNEI",
+      version="0.0.1",
+      description="Non-equilibrium ionization modeling in the solar corona and wind",
+      url="https://github.com/namurphy/SunNEI",
+      author="Chengcai Shen and Nick Murphy",
       author_email="namurphy@cfa.harvard.edu",
       license="MIT",
-      packages=["NEI"],
+      packages=["sunnei"],
       )

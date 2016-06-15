@@ -12,13 +12,13 @@ Purpose: test
 #------------------------------------------------------------------------------
 from __future__ import print_function
 import numpy as np
-import neipy
+import sunnei
 import matplotlib.pyplot as plt
 
 #------------------------------------------------------------------------------
 # read AtomicData
 #------------------------------------------------------------------------------
-AtomicData = neipy.read_atomic_data(screen_output=True)
+AtomicData = sunnei.read_atomic_data(screen_output=True)
 
 # Define the plasma parameters
 elements = ['He', 'O', 'Mg']
@@ -30,9 +30,9 @@ te_list = [te0, te0]
 ne_list = [ne0, ne0*0.9]
 
 # Create a dictionary to save results
-ChargeStateDic = neipy.create_ChargeStates_dictionary(elements)
-ChargeStateDic_pre = neipy.create_ChargeStates_dictionary(elements)
-ChargeStateDic_next = neipy.create_ChargeStates_dictionary(elements)
+ChargeStateDic = sunnei.create_ChargeStates_dictionary(elements)
+ChargeStateDic_pre = sunnei.create_ChargeStates_dictionary(elements)
+ChargeStateDic_next = sunnei.create_ChargeStates_dictionary(elements)
 #ChargeStateTime = [ChargeStateDic]
 
 #------------------------------------------------------------------------------
@@ -42,7 +42,7 @@ ChargeStateDic_next = neipy.create_ChargeStates_dictionary(elements)
 
 # Start from any ionization states, e.g., Te = 4.0d4 K,
 time = 0
-ind = neipy.core.func_index_te(te_ini, AtomicData['temperatures'])
+ind = sunnei.core.func_index_te(te_ini, AtomicData['temperatures'])
 
 print('************************************')
 print('TEST STARTING: elements =', elements)
@@ -65,10 +65,10 @@ i = 0
 while (i < 20):
     i = i+1
     
-    dt = neipy.core.func_dt_eigenval(elements, AtomicData, te_list, ne_list, dt_in)
+    dt = sunnei.core.func_dt_eigenval(elements, AtomicData, te_list, ne_list, dt_in)
     
     nec = 0.5*(ne_list[0] + ne_list[1])
-    ChargeStateDic_next = neipy.core.func_solver_eigenval(elements, AtomicData, te0, nec, dt, ChargeStateDic_pre)
+    ChargeStateDic_next = sunnei.core.func_solver_eigenval(elements, AtomicData, te0, nec, dt, ChargeStateDic_pre)
     
     # for the next step
     ne_list[0] = ne_list[1]
@@ -94,7 +94,7 @@ for element in elements:
     print('Sum = ', np.sum(ChargeStateDic_next[element]))
 
     print('EQI')
-    ind = neipy.core.func_index_te(te0, AtomicData['temperatures'])
+    ind = sunnei.core.func_index_te(te0, AtomicData['temperatures'])
     print(AtomicData[element]['equistate'][ind,:])
 
 #------------------------------------------------------------------------------

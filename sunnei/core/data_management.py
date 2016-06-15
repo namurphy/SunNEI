@@ -14,7 +14,7 @@ def read_atomic_data(elements=['H', 'He', 'C',     # twelve most abundant elemen
                                'N', 'O', 'Ne',
                                'Mg', 'Si', 'S', 
                                'Ar', 'Ca', 'Fe', ] , 
-                     data_directory= 'neipy/AtomicData',   # not robust!  Works when calling from the directory that neipy is in
+                     data_directory= 'sunnei/AtomicData',   # not robust!  Works when calling from the directory that sunnei is in
                      screen_output=False):
 
     '''

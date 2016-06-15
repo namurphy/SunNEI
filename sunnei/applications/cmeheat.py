@@ -12,8 +12,8 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from neipy.core import func_index_te, func_dt_eigenval, func_solver_eigenval
-from neipy.core import read_atomic_data, create_ChargeStates_dictionary, \
+from sunnei.core import func_index_te, func_dt_eigenval, func_solver_eigenval
+from sunnei.core import read_atomic_data, create_ChargeStates_dictionary, \
     ReformatChargeStateList
 
 # Definining constants
@@ -64,7 +64,7 @@ def cmeheat_track_plasma(
 
     Example
 
-    output = neipy.cmeheat_track_plasma(log_initial_temp=6.4, 
+    output = sunnei.cmeheat_track_plasma(log_initial_temp=6.4, 
                                         log_initial_dens=9.4,
                                         vfinal=2500.0,
                                         ExpansionExponent=-2.5)

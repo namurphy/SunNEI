@@ -80,12 +80,12 @@ def func_dt_eigenval(elements_arr, AtomicData, te_list, ne_list, dt_in,
 #   2016-05-03
 #   Replace input parameter 'natom' by 'element'. 
 #   Add a argument 'AtomicData',  which is a dictionary, created by 
-#   using neipy.read_atomic_data.
+#   using sunnei.read_atomic_data.
 #   2016-05-17
 #   Replace input parameter 'element' by 'elements'.
 #   Add a loop to over a element list.
 #   f0_dic and ft_dic are charge_state dictionary defined using function 
-#   neipy.create_ChargeStates_dictionary.
+#   sunnei.create_ChargeStates_dictionary.
 #
 def func_solver_eigenval(elements, AtomicData, te, ne, dt, f0_dic):
     

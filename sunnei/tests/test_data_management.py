@@ -1,5 +1,5 @@
 from __future__ import print_function
-from neipy import read_atomic_data, create_ChargeStates_dictionary
+from sunnei import read_atomic_data, create_ChargeStates_dictionary
 
 def test_read_atomic_data():
     print("Running test_read_atomic_data")

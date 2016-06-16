@@ -8,8 +8,11 @@ Update: 2016-06-04
         Initialization.
         2016-06-06
         Loops for all elements.
+        2016-06-15
+        Changed for the programe name 'SunNEI';
+        Bug fixed.
 """
-import neipy
+import sunnei
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import animation
@@ -17,7 +20,7 @@ from matplotlib import animation
 #------------------------------------------------------------------------------
 # run a test
 #------------------------------------------------------------------------------
-run_output = neipy.cmeheat_track_plasma(log_initial_temp=6.4, log_initial_dens=9.4, vfinal=2500.0, ExpansionExponent=-2.5)
+run_output = sunnei.cmeheat_track_plasma(log_initial_temp=6.4, log_initial_dens=9.4, vfinal=2500.0, ExpansionExponent=-2.5)
 
 #------------------------------------------------------------------------------
 # plot
@@ -28,7 +31,7 @@ for elem in elems:
     #element='O'
     element = elem
 
-    natom=neipy.applications.cmeheat.AtomicNumbers[element]
+    natom=sunnei.applications.cmeheat.AtomicNumbers[element]
     nstates = natom+1
     nsteps = run_output['nsteps']
  
@@ -55,7 +58,7 @@ for elem in elems:
     def animate_frame(i):
         x = np.linspace(1, nstates, nstates, dtype=int)   
         #y_eqi = ?
-        y_nei = run_output['ChargeStates'][i][element]
+        y_nei = run_output['ChargeStates'][element][i,:]
         line.set_data(x, y_nei)
         
         # display text
@@ -71,7 +74,7 @@ for elem in elems:
     # Here we choose the movie enginer 'ffmpeg'. One can find the avavliable 
     # enginer for your system. For example, the following code will print out a 
     # list of all available MovieWriters:
-    # import matplotlib import animation
+    # from matplotlib import animation
     # print(animation.writers.list())
     # ['ffmpeg', 'ffmpeg_file', 'imagemagick', 'imagemagick_file', ...]
     # If ffmpeg is not among it, you may install it first.

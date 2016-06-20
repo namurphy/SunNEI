@@ -48,13 +48,14 @@ def cmeheat_track_plasma(
     vscaletime           = 1800.0,  # s
     ExpansionExponent    = -2.5,    # dimensionless
     floor_log_temp       = 3.0,     # logarithm of floor temperature in K
+    safety_factor = 1.0,            # multiplicative factor for time step
     elements = ['H', 'He', 'C',     # elements to be modeled
                 'N', 'O', 'Ne',
                 'Mg', 'Si', 'S', 
                 'Ar', 'Ca', 'Fe', ],
     screen_output=True,
     quicklook=True,
-    safety_factor = 1.0,            # multiplicative factor for time step
+    barplot=True,
     ):
     
     '''
@@ -455,6 +456,14 @@ def cmeheat_track_plasma(
         cmeheat_quicklook(output,
                           filename=quicklookfile,
                           minfrac=1e-2)
+
+    if barplot != False:
+        if barplot == True:
+            barplotfile = 'barplots.pdf'
+        else:
+            barplotfile = barplot
+
+        cmeheat_barplot(output, filename=barplotfile)
         
     # Print warnings for situations when the simulation may be inaccurate
 
@@ -584,8 +593,10 @@ def cmeheat_grid(
                         vscaletime = vscaletime,
                         ExpansionExponent = gridinputs['e'][je],
                         elements = elements,
-                        screen_output = False,
-                        floor_log_temp = floor_log_temp,
+                        floor_log_temp = floor_log_temp,    
+                        screen_output=False,
+                        quicklook=False,
+                        barplot=False,
                         )
 
                     list_of_simulations.append(simulation.copy())
@@ -727,7 +738,7 @@ def cmeheat_quicklook(output,
     away from the Sun.
     '''
 
-    assert filename[-4:-1]=='.pd' and filename[-1]=='f', 'Need filename to end in .pdf'
+    assert filename.endswith('.pdf'), 'Need filename to end in .pdf'
 
     # Calculate the time in hours
 
@@ -885,6 +896,108 @@ def cmeheat_quicklook(output,
                   ncol=ncol, 
                   handlelength=handlelength,
                   columnspacing=0.6)
+
+    fig.tight_layout(pad=0.6)
+
+    fig.savefig(filename)
+
+    plt.close(fig)
+
+def cmeheat_barplot(output, 
+                    element='all', 
+                    filename=False,
+                    ):
+    '''
+    Make bar plots of the ionization fractions at the beginning and
+    end of a simulation.  The first input is the output from
+    cmeheat_track_plasma.  If element=='all' then all of the elements
+    will be plotted (default).  If element equals the atomic symbol of
+    an element that was modeled, then plot only that element.  If
+    filename is specified, then it will save the plot to that file,
+    but it must end with pdf.
+    '''
+
+    assert element=='all' or output['elements'].__contains__(element), \
+        'Need element to equal all or the symbol of an element that was modeled'
+
+    # Plotting preliminaries
+
+    fontsize_title = 9.2
+    fontsize_labels = 8.0
+    fontsize_legend = 8.6
+
+    width = 1.0
+
+    # Choose whether or not to make bar plots
+
+    if element=='all':
+        if filename==False:
+            filename='barplots.pdf'
+            
+        figsize=(11,8.5)
+        elements = output['elements']            
+        nxplots, nyplots = 4, 3
+    else:
+        if filename==False:
+            filename='barplot_'+element+'.pdf'
+        figsize=(4.0,3.5)
+        elements = [element]
+        nxplots, nyplots = 1, 1
+
+
+    # Begin the plot
+            
+    fig = plt.figure(figsize=figsize)
+    
+    i = 0
+    for elem in elements:
+
+        if AtomicNumbers[elem] <= 18:
+            fontsize_ticks = 7.6
+        elif AtomicNumbers[elem] <= 22:
+            fontsize_ticks = 6.4
+        else:
+            fontsize_ticks = 5.7
+
+        x = np.linspace(0, AtomicNumbers[elem], AtomicNumbers[elem]+1, 
+                        dtype=np.int16)
+
+        ax = fig.add_subplot(nxplots,nyplots,i+1)
+
+        ax.set_title(elem, fontsize=fontsize_title)
+        ax.set_ylabel('Ionization fractions', fontsize=fontsize_labels)
+        if nxplots==1 and nyplots==1:
+            ax.set_xlabel('Charge States', fontsize=fontsize_labels)
+        ax.tick_params(axis='both', labelsize=fontsize_ticks)
+        ax.set_xlim(0, len(x))
+        ax.set_ylim(0, 1)
+        ax.set_xticks(x+width/2.0)
+        ax.set_xticklabels(x)
+
+        ax.bar(x, 
+               output['ChargeStates'][elem][0,:],
+               color='red',
+               label='$'+str(output['initial_height'])+'R_\odot$',
+               width=width,
+               alpha=0.6,
+               )
+
+        ax.bar(x,
+               output['ChargeStates'][elem][-1,:],
+               color='blue',
+               label='$'+str(output['final_height'])+'R_\odot$',
+               width=width,
+               alpha=0.6,
+               )
+
+        i = i+1
+
+        ax.legend(loc='best', 
+                  fontsize=fontsize_legend, 
+                  labelspacing=0.2,
+                  borderaxespad=0.66,
+                  )
+
 
     fig.tight_layout(pad=0.6)
 

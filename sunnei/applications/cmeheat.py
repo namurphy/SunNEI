@@ -47,14 +47,13 @@ def cmeheat_track_plasma(
     vfinal               = 500.0,   # km/s
     vscaletime           = 1800.0,  # s
     ExpansionExponent    = -2.5,    # dimensionless
-    floor_log_temp       = 4.0,     # logarithm of floor temperature in K
+    floor_log_temp       = 3.0,     # logarithm of floor temperature in K
     elements = ['H', 'He', 'C',     # elements to be modeled
                 'N', 'O', 'Ne',
                 'Mg', 'Si', 'S', 
                 'Ar', 'Ca', 'Fe', ],
-    RadiativeLosses = False,
     screen_output=True,
-    quicklook=False,
+    quicklook=True,
     safety_factor = 1.0,            # multiplicative factor for time step
     ):
     
@@ -118,10 +117,14 @@ def cmeheat_track_plasma(
         parameters, plasma parameters over time, and initial/final
         charge states to the screen 
 
-        quicklook: set to True to output a file containing quicklook
-        information, including plots of height vs. time; velocity,
-        temperature, and density vs. height; and then the ionization
-        fractions for a few elements as functions of height
+        quicklook: if set to True, then this function will output
+        quicklook.pdf which contains quicklook information.  If set to
+        a string containing the name of a pdf file, then the quicklook
+        file will have that filename.  If no output is desired, then
+        set to False.  The quicklook information includes plots of
+        height vs. time; velocity, temperature, and density
+        vs. height; and ionization fractions for a few elements as
+        functions of height
 
     The output is a a dictionary with the following keys
 
@@ -169,20 +172,30 @@ def cmeheat_track_plasma(
         'Choose an initial height between 0.01 and 0.5 RSun'+\
         '(from 0.05 to 0.1 is best)'
 
+    assert initial_height < final_height, \
+        'Need initial_height < final_height'
+
     assert vfinal >= 50.0 and vfinal <= 5000.0, \
         'Need vfinal between 50.0 and 5000.0 km/s (from 250 to 2500 km/s is best)'
-
-    assert log_initial_temp >= 3.0 and log_initial_temp <= 8.0, \
-        'Need log_initial_temp between 3.0 and 8.0 (from 4.6 to 7.0 is best)'
-
+    
+    assert log_initial_temp >= 3.6 and log_initial_temp <= 8.0, \
+        'Need log_initial_temp between 3.6 and 8.0 (from 4.6 to 7.0 is best)'
+    
     assert elements.__contains__('H'), \
         'The elements list must include H to calculate electron density'
-
+    
     assert elements.__contains__('He'), \
         'The elements list must include He to calculate electron density'
-
-    assert ExpansionExponent>=-4.0 and ExpansionExponent<=-0.9, \
-        'Need ExpansionExponent between -4 and -0.9 (usually between -3.0 and -1.5)'
+    
+    assert ExpansionExponent>=-4.5 and ExpansionExponent<=-0.5, \
+        'Need ExpansionExponent between -4.5 and -0.5 (usually between -3.0 and -2.0)'
+    
+    assert quicklook == True or quicklook == False or \
+        quicklook.endswith('.pdf'), \
+        'Need quicklook to be True or False or a string ending in .pdf'
+    
+    assert log_initial_temp>=floor_log_temp, \
+        'Need log_initial_temp >= floor_log_temp'
 
     # Read in the atomic data to be used for the non-equilibrium
     # ionization calculations.
@@ -433,9 +446,14 @@ def cmeheat_track_plasma(
     if screen_output:
         print_screen_output(output)
        
-    if quicklook:
+    if quicklook != False:
+        if quicklook == True:
+            quicklookfile = 'quicklook.pdf'
+        else:
+            quicklookfile = quicklook
+
         cmeheat_quicklook(output,
-                          filename='quicklook.pdf',
+                          filename=quicklookfile,
                           minfrac=1e-2)
         
     # Print warnings for situations when the simulation may be inaccurate
@@ -708,6 +726,9 @@ def cmeheat_quicklook(output,
     charge states as a function of time as the plasma blob is moving
     away from the Sun.
     '''
+
+    assert filename[-4:-1]=='.pd' and filename[-1]=='f', 'Need filename to end in .pdf'
+
     # Calculate the time in hours
 
     if xaxis[0]=='h':
@@ -733,9 +754,8 @@ def cmeheat_quicklook(output,
         ax.tick_params(axis='both', labelsize=fontsize_ticks)
         if i == 0:
             ax.plot(output['time']/3600.0, output['height'])
-            ax.set_ylabel('Height (solar radii)')
+            ax.set_ylabel('Height (solar radii)', fontsize=fontsize_labels)
             ax.set_title('Position',fontsize=fontsize_title)
-#            ax.axis([output['time'][0]/3600.0,x[-1],0.0,np.max(x)])
             ax.axis([output['time'][0]/3600.0,output['time'][-1]/3600.0,
                      0.0, output['final_height']])
             ax.set_xlabel('Time (hours)', fontsize=fontsize_labels)
@@ -755,8 +775,10 @@ def cmeheat_quicklook(output,
             ax.legend(loc='best',fontsize=fontsize_legend, handlelength=3)
             ax.set_title('Number Density', fontsize=fontsize_title)
             ax.axis([x[0],x[-1],
-                     np.log10(np.min(output['electron_density'])),
-                     np.log10(np.max(output['electron_density'])),
+                     np.log10(np.min([output['electron_density'],
+                                      output['density']])),
+                     np.log10(np.max([output['electron_density'],
+                                      output['density']])),
                      ])
         elif i == 3:
             ax.plot(x,
@@ -766,7 +788,6 @@ def cmeheat_quicklook(output,
             ax.axis([x[0],x[-1],
                     np.min( np.log10(output['temperature'])-0.02 ),
                     np.max( np.log10(output['temperature']) )])
-
 
     # Plotting style preliminaries for second set of plots
 
@@ -867,6 +888,6 @@ def cmeheat_quicklook(output,
 
     fig.tight_layout(pad=0.6)
 
-    fig.savefig('quicklook.pdf')
+    fig.savefig(filename)
 
     plt.close(fig)

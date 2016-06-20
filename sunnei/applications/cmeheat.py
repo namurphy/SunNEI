@@ -114,6 +114,15 @@ def cmeheat_track_plasma(
         use a safety_factor of perhaps 0.3.  For practice runs, you
         may use a safety factor of 2 or 3 to save computational time.
 
+        screen_output: set to True to print out information on input
+        parameters, plasma parameters over time, and initial/final
+        charge states to the screen 
+
+        quicklook: set to True to output a file containing quicklook
+        information, including plots of height vs. time; velocity,
+        temperature, and density vs. height; and then the ionization
+        fractions for a few elements as functions of height
+
     The output is a a dictionary with the following keys
 
         time: time values in seconds (NumPy array)
@@ -710,7 +719,7 @@ def cmeheat_quicklook(output,
 
     fontsize_title = 9.0
     fontsize_labels = 8.0
-    fontsize_legend = 7.0
+    fontsize_legend = 6.8
     fontsize_ticks = 7.0
 
     # First set of plots: height, velocity, density, and temperature
@@ -835,17 +844,25 @@ def cmeheat_quicklook(output,
         ax.set_title('Charge States for '+element,fontsize=fontsize_title)
         ax.tick_params(axis='both', labelsize=fontsize_ticks)
         
+        handlelength = 3.0
+
         if len(ChargeStatesToPlot)<4:
             ncol=1
         elif len(ChargeStatesToPlot)<9:
             ncol=2
-        else:
+        elif len(ChargeStatesToPlot)<11:
             ncol=3
+            handlelength=2.5
+        else:
+            ncol=5
+            handlelength=2.3
+            
+
 
         ax.legend(loc='best', 
                   fontsize=fontsize_legend, 
                   ncol=ncol, 
-                  handlelength=3,
+                  handlelength=handlelength,
                   columnspacing=0.6)
 
     fig.tight_layout(pad=0.6)

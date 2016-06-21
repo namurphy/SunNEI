@@ -198,6 +198,9 @@ def cmeheat_track_plasma(
     assert log_initial_temp>=floor_log_temp, \
         'Need log_initial_temp >= floor_log_temp'
 
+    assert safety_factor > 0 and safety_factor <= 25, \
+        'Need safety_factor to be a scalar between 0 and 25 (usually between 0.1 and 2)'
+
     # Read in the atomic data to be used for the non-equilibrium
     # ionization calculations.
 
@@ -486,120 +489,200 @@ def cmeheat_track_plasma(
 
 
 def cmeheat_grid(
-    initial_height = 0.1,
-    final_height = 6.0,
+    vfinal_range = [500.0, 2000.0],
+    vscaletime_range = [1800, 2400],
     log_temp_range = [5.0,7.0], 
-    log_dens_range = [9.0,11.0],
-    vfinal_range = [500, 2000],
-    vscaletime = 1800.0,
+    log_dens_range =  [9.0,11.0],
     ExponentRange = [-3.0,-1.5], 
-    nvel = 2,
+    nvel = 4,
+    nvtime = 2,
     ntemp = 2,
     ndens = 2,
     nexp = 2,                       
+    initial_height = 0.1,
+    final_height = 10.0,
+    floor_log_temp=3.9,
+    safety_factor=1.0,
     elements = ['H', 'He', 'C',     # elements to be modeled
                 'N', 'O', 'Ne',
                 'Mg', 'Si', 'S', 
                 'Ar', 'Ca', 'Fe', ],
-    floor_log_temp=2.0,
     ):
-
+    
     '''
     This program runs a grid of simulations.  This program works, but
     still requires improvements and comments.
+
+    The inputs log_temp_range, log_dens_range, vfinal_range,
+    vscaletime_range, and ExponentRange are either scalars or
+    lists/arrays that contain information on the simulations to be 
+
+    The following inputs specify the ranges of different parameters to
+    be used in the grid of simulations.
+
+      vfinal_range:
+
+      vscaletime_range: 
+
+      log_temp_range:
+      
+      log_dens_range:
+
+      ExponentRange:
+
+    The following inputs specify the number of different parameters to
+    be included in the grid of simulations.  These numbers are used
+    only if the corresponding range input includes exactly two values.
+
+      nvel: The number of final velocities to be included in grid
+      nvtime: The number of velocity scale times to be included in grid
+      ntemp: The number of initial temperatures to be included in grid
+      ndens: The number of initial number densities to be included in grid
+      nexp: The number of expansion exponents to be included in grid
+
+    The number of temperatures, densities, velocities, and expansion
+    exponents is given by ntemp, ndens, nvel, and nexp.  
+
+    The inputs initial_height, final_height, floor_log_temp,
+    safety_factor, and elements are identical to cmeheat_track_plasma,
+    and indeed are just fed directly into that routine.  
     '''
     
     print()
-    print("Running cmeheat_grid")
+    print('Running cmeheat_grid')
+    print()
 
+    # Check to make sure the inputs are in an appropriate format
 
-    # Make dictionaries to store 
+    assert np.size(initial_height)==1, \
+        'Need initial_height to be a scalar'
 
-    variables = ['V', 'T', 'n', 'e']
+    assert np.size(final_height), \
+        'Need final_height to be a scalar'
+
+    assert np.size(safety_factor)==1, \
+        'Need safety_factor to be a scalar'
+    
+    # Make a list of the keys to be used for the different variables
+    # in the different dictionaries.  This makes it easier to do loops
+    # like for key in keys that will do stuff for every variable.
+
+    keys = ['V', 'tau', 'T', 'n', 'e']
+
+    # Make dictionaries to store the inputs.  Here, ranges stores the
+    # different inputted ranges for the different variables and sizes
+    # stores the inputted sizes.  Note that there is some special
+    # handling of ranges described below, which means that the
+    # inputted sizes does not necessarily result in the final sizes.
 
     ranges = {
-        'V':np.array(vfinal_range),
-        'T':np.array(log_temp_range),
-        'n':np.array(log_dens_range),
-        'e':np.array(ExponentRange),
+        'V':np.array(vfinal_range, dtype=np.float32, ndmin=1),
+        'tau':np.array(vscaletime_range, dtype=np.float32, ndmin=1),
+        'T':np.array(log_temp_range, dtype=np.float32, ndmin=1), 
+        'n':np.array(log_dens_range, dtype=np.float32, ndmin=1),
+        'e':np.array(ExponentRange, dtype=np.float32, ndmin=1),
         }
     
-    sizes = {'V':nvel, 'T':ntemp, 'n':ndens, 'e':nexp, }
+    sizes = {'V':nvel, 'tau':nvtime, 'T':ntemp, 'n':ndens, 'e':nexp, }
+    
+    # Create the gridinputs dictionary. This dictionary contains a
+    # NumPy array with the different values to be scanned over for
+    # each variable.  For example, gridinputs['V'] contains a NumPy
+    # array with all of the velocities to be analyzed in the grid of
+    # simulations.
+    
+    # If a certain range is given by a scalar or a list/array with
+    # only one value, then gridinputs[key] will be an array including
+    # that sole value.  If the range for a variable includes two
+    # values, then gridinputs[key] will include a NumPy array with
+    # evenly spaced values between these two extremes where the total
+    # number is the size specified in the inputs (default=2).
+
+    # Note that the sizes array is used in this step, but not
+    # afterwards.
 
     gridinputs = {}
 
-    # The number of temperatures, densities, velocities, and expansion
-    # exponents is given by ntemp, ndens, nvel, and nexp.  Here we
-    # make sure that these integers are consistent with the inputted
-    # ranges.  
-    
-    # If any of the ranges have just one element, then change the size
+    for key in keys:
+        if ranges[key].size == 1:
+            sizes[key] = 1
+            gridinputs[key] = ranges[key]
+        elif ranges[key].size == 2:
+            assert sizes[key] >= 2, \
+                'Two elements in range input, but number of simulations requested is 1 for '+key
+            gridinputs[key] = \
+                np.linspace(ranges[key][0],
+                            ranges[key][1],
+                            sizes[key])
+        elif ranges[key].size > 2:
+            sizes[key] = np.size(ranges[key])
+            gridinputs[key] = np.sort(ranges[key])
+        else:
+            assert False, \
+                'Error in setting up grid inputs for key='+key
             
-    for var in variables:
-        if ranges[var].size == 1:
-            sizes[var] = 1
-            gridinputs[var] = ranges[var][0]
-        elif ranges[var].size == 2 and sizes[var] == 2:
-            gridinputs[var] = ranges[var]
-        elif sizes[var] > 2:
-            gridinputs[var] = \
-                np.linspace(ranges[var][0], ranges[var][1], sizes[var])
-           
-    # Print information about the grid of simulations
-
-    print()
+    # Print information about the grid of simulations to be performed
 
     print('Initial parameters:')
-    print('nvel={0:>3d}   ntemp={1:>3d}   ndens={2:>3d}  nexp={3:>3d}'.format(
+    print('nvel={0:>3d}   nvtime={1:>3d}   ntemp={2:>3d}   ndens={3:>3d}  nexp={4:>3d}'.format(
             gridinputs['V'].size, 
+            gridinputs['tau'].size,
             gridinputs['T'].size, 
             gridinputs['n'].size,
             gridinputs['e'].size,
             ))
-
     print()
 
     # Loop through all of the different inputs for the grid of
     # simulations.  Add the results to the list_of_simulations.
 
-    # Is there a better way to store this than a list of simulations???
-    #  Need to put in jv, jt, jd, je
+    # Is there a better way to store this than a list of simulations?
+    # It would be really helpful if it could be indexed as [jv, jtau,
+    # jt, jd, je].  A possibility would be to create a helper routine.
 
-    formatting_string = '{0:>3d}{1:>3d}{2:>3d}{3:>3d}   V={4:>7.1f}  log T={5:>5.2f}   log n={6:>5.2f}  alpha={7:>5.2f}'
-
+    formatting_string = '{0:>3d}{1:>3d}{2:>3d}{3:>3d}{4:>3d}  '+\
+        'V={5:>7.1f} tau={6:7.1f} log T={7:>5.2f} log n={8:>5.2f} alpha={9:>5.2f}'
 
     list_of_simulations = []
 
-    for jv in range(nvel):            
-        for jt in range(ntemp):
-            for jd in range(ndens):
-                for je in range(nexp):
+    for jv in range(gridinputs['V'].size):  
+        for jtau in range(gridinputs['tau'].size):
+            for jt in range(gridinputs['T'].size):
+                for jd in range(gridinputs['n'].size):
+                    for je in range(gridinputs['e'].size):
 
-                    # Print information about each simulation
+                        # Print information about each simulation
 
-                    print(formatting_string.format(
-                            jv,jt,jd,je,
-                            gridinputs['V'][jv],
-                            gridinputs['T'][jt],
-                            gridinputs['n'][jd],
-                            gridinputs['e'][je],))   
+                        print(formatting_string.format(
+                                jv,jtau,jt,jd,je,
+                                gridinputs['V'][jv],
+                                gridinputs['tau'][jtau],
+                                gridinputs['T'][jt],
+                                gridinputs['n'][jd],
+                                gridinputs['e'][je],))   
       
-                    simulation = cmeheat_track_plasma(
-                        initial_height = initial_height,
-                        final_height = final_height,
-                        log_initial_temp = gridinputs['T'][jt],
-                        log_initial_dens = gridinputs['n'][jd],
-                        vfinal = gridinputs['V'][jv],
-                        vscaletime = vscaletime,
-                        ExpansionExponent = gridinputs['e'][je],
-                        elements = elements,
-                        floor_log_temp = floor_log_temp,    
-                        screen_output=False,
-                        quicklook=False,
-                        barplot=False,
-                        )
+                        # Run the simulation for the particular set of
+                        # input parameters
 
-                    list_of_simulations.append(simulation.copy())
+                        simulation = cmeheat_track_plasma(
+                            initial_height = initial_height,
+                            final_height = final_height,
+                            log_initial_temp = gridinputs['T'][jt],
+                            log_initial_dens = gridinputs['n'][jd],
+                            vfinal = gridinputs['V'][jv],
+                            vscaletime = gridinputs['tau'][jtau],
+                            ExpansionExponent = gridinputs['e'][je],
+                            elements = elements,
+                            floor_log_temp = floor_log_temp,    
+                            screen_output=False,
+                            quicklook=False,
+                            barplot=False,
+                            )
+                        
+                        # Add this simulation's output to the list of
+                        # simulations that will be outputted
+
+                        list_of_simulations.append(simulation.copy())
 
     return list_of_simulations
 

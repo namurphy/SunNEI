@@ -494,7 +494,7 @@ def cmeheat_grid(
     log_temp_range = [5.0,7.0], 
     log_dens_range =  [9.0,11.0],
     ExponentRange = [-3.0,-1.5], 
-    nvel = 4,
+    nvel = 2,
     nvtime = 2,
     ntemp = 2,
     ndens = 2,
@@ -989,6 +989,7 @@ def cmeheat_quicklook(output,
 def cmeheat_barplot(output, 
                     element='all', 
                     filename=False,
+                    ShowClosedShells=True,
                     ):
     '''
     Make bar plots of the ionization fractions at the beginning and
@@ -1073,14 +1074,27 @@ def cmeheat_barplot(output,
                alpha=0.6,
                )
 
+        # Put in a vertical dotted line if there is a closed shell.
+        # This corresponds to
+
+        if ShowClosedShells:
+            if AtomicNumbers[elem]>=2:
+                ax.plot([AtomicNumbers[elem]-1.5, AtomicNumbers[elem]-1.5], [0.0, 1.0], 
+                        'k:', linewidth=0.4)
+            if AtomicNumbers[elem]>=10:
+                ax.plot([AtomicNumbers[elem]-9.5, AtomicNumbers[elem]-9.5], [0.0, 1.0], 
+                        'k:', linewidth=0.4)
+            if AtomicNumbers[elem]>=18:
+                ax.plot([AtomicNumbers[elem]-17.5, AtomicNumbers[elem]-17.5], [0.0, 1.0], 
+                        'k:', linewidth=0.4)
+
+        if i==0:
+            ax.legend(loc='best', 
+                      fontsize=fontsize_legend, 
+                      labelspacing=0.2,
+                      borderaxespad=0.66,
+                      )
         i = i+1
-
-        ax.legend(loc='best', 
-                  fontsize=fontsize_legend, 
-                  labelspacing=0.2,
-                  borderaxespad=0.66,
-                  )
-
 
     fig.tight_layout(pad=0.6)
 

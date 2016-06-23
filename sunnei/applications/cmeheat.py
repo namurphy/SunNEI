@@ -14,7 +14,7 @@ import pandas as pd
 
 from sunnei.core import func_index_te, func_dt_eigenval, func_solver_eigenval
 from sunnei.core import read_atomic_data, create_ChargeStates_dictionary, \
-    ReformatChargeStateList
+    ReformatChargeStateList, EquilChargeStates
 
 # Definining constants
 
@@ -47,7 +47,7 @@ def cmeheat_track_plasma(
     vfinal               = 500.0,   # km/s
     vscaletime           = 1800.0,  # s
     ExpansionExponent    = -2.5,    # dimensionless
-    floor_log_temp       = 3.0,     # logarithm of floor temperature in K
+    floor_log_temp       = 4.0,     # logarithm of floor temperature in K
     safety_factor = 1.0,            # multiplicative factor for time step
     elements = ['H', 'He', 'C',     # elements to be modeled
                 'N', 'O', 'Ne',
@@ -466,7 +466,7 @@ def cmeheat_track_plasma(
         else:
             barplotfile = barplot
 
-        cmeheat_barplot(output, filename=barplotfile)
+        cmeheat_barplot(output, filename=barplotfile, AtomicData=AtomicData)
         
     # Print warnings for situations when the simulation may be inaccurate
 
@@ -990,6 +990,8 @@ def cmeheat_barplot(output,
                     element='all', 
                     filename=False,
                     ShowClosedShells=True,
+                    ShowFinalEquilibrium=False,
+                    AtomicData=None,
                     ):
     '''
     Make bar plots of the ionization fractions at the beginning and
@@ -1058,6 +1060,20 @@ def cmeheat_barplot(output,
         ax.set_xticks(x+width/2.0)
         ax.set_xticklabels(x)
 
+        # If requested, show the equilibrium charge states associated
+        # with the final temperature.
+
+        if ShowFinalEquilibrium:
+            EqChargeStates = EquilChargeStates(output['temperature'][-1],elem,AtomicData=AtomicData)
+            ax.bar(x, 
+                   EqChargeStates,
+                   color='white',
+                   label='Equil',
+                   width=width,
+                   alpha=1.0)
+
+        # Plot the initial and final charge state distributions
+
         ax.bar(x, 
                output['ChargeStates'][elem][0,:],
                color='red',
@@ -1101,3 +1117,4 @@ def cmeheat_barplot(output,
     fig.savefig(filename)
 
     plt.close(fig)
+

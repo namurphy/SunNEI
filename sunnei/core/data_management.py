@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 import os
 
+from .time_advance import func_index_te
+
 AtomicNumbers = pd.Series(np.arange(28)+1,
                          index=['H' ,'He',
                                 'Li','Be','B' ,'C' ,'N' ,'O' ,'F' ,'Ne',
@@ -156,8 +158,6 @@ def create_ChargeStates_dictionary(elements,
     one (to within roundoff or numerical error).  
     '''
 
-    from .time_advance import func_index_te
-
     ChargeStates = {}
     
     # Initialize the charge state distribution for each element by
@@ -170,13 +170,16 @@ def create_ChargeStates_dictionary(elements,
     # If the temperature is specified, then initialize this dictionary
     # with the equilibrium charge states for that temperature.
 
+    # For future, could replace part of this loop with the new
+    # EquilChargeStates function below
+
     if temperature>0: 
         if AtomicData == None:
             AtomicData = read_atomic_data(elements)
         TemperatureIndex = func_index_te(temperature, AtomicData['temperatures'])
         for element in elements:
             AtomicNumber = AtomicNumbers[element]
-            ChargeStates[element] = AtomicData[element]['equistate'][TemperatureIndex]
+            ChargeStates[element] = AtomicData[element]['equistate'][TemperatureIndex,:]
             # Make sure that the charge states are nonnegative
             for istate in range(ChargeStates[element].size):
                 if ChargeStates[element][istate] < 1e-14:
@@ -219,3 +222,24 @@ def ReformatChargeStateList(ChargeStateList, elements, nsteps):
             ChargeStates[element][istep,0:ncharge] = \
                 ChargeStateList[istep][element][0:ncharge]
     return ChargeStates
+
+def EquilChargeStates(temperature, element, AtomicData=None):
+    '''
+    Returns an array of the equilibrium charge states for an element
+    at temperature T.
+    '''
+
+    if AtomicData.__class__ != dict:
+        AtomicData = read_atomic_data([element])
+
+    TemperatureIndex = func_index_te(temperature, AtomicData['temperatures'])
+    ChargeStates = AtomicData[element]['equistate'][TemperatureIndex,:]
+
+    for istate in range(ChargeStates.size):
+        if ChargeStates[istate] < 1e-14:
+            ChargeStates[istate] = 0.0
+        elif ChargeStates[istate] > 1.0 and ChargeStates[element][istate] < 1.0 + 9e-10:
+            ChargeStates[istate] = 1.0           
+
+    return ChargeStates
+            

@@ -17,7 +17,7 @@ from scipy import interpolate
 #>>> plt.plot(x, y, 'o', xnew, ynew, '-')
 #>>> plt.show()
 
-def GetCoolingRateInterpolationFunction():
+def get_cooling_function():
     
     '''
     A table of the cooling rate coefficient Lambda(T) provided by John
@@ -27,7 +27,7 @@ def GetCoolingRateInterpolationFunction():
     He    C    N    O    Ne   Mg   Si   S    Ar   Ca   Fe   Ni 
     10.93 8.82 7.96 8.52 7.96 7.52 7.60 7.20 6.90 6.30 7.60 6.30
     
-    Multiply this by n_e * n_H to get cooling per cm3 s.  This includes
+    Multiply this by n_e * n_H to get cooling ergs*cm^3/s.  This includes
     lines & recombination, hydrogen, and bremsstrahlung.
     
     Note that this cooling curve assumes ionization equilibrium so there
@@ -39,6 +39,8 @@ def GetCoolingRateInterpolationFunction():
 
     logT = np.linspace(4.0,8.0,161) # Delta T = 0.025
     
+    T = 10**logT
+
     Lambda = np.array(
         [0.662E+00,0.113E+01,0.190E+01,0.312E+01,0.492E+01,0.725E+01,
          0.968E+01,0.115E+02,0.123E+02,0.127E+02,0.123E+02,0.116E+02,
@@ -67,11 +69,11 @@ def GetCoolingRateInterpolationFunction():
          0.187E+01,0.191E+01,0.194E+01,0.198E+01,0.202E+01,0.206E+01,
          0.210E+01,0.214E+01,0.219E+01,0.224E+01,0.229E+01,0.234E+01,
          0.239E+01,0.244E+01,0.250E+01,0.256E+01,0.261E+01,]
-        )
+        )*1e-23
     
-    assert logT.size == Lambda.size, 'Mismatch in cooling function tables'
+    assert T.size == Lambda.size, 'Mismatch in cooling function tables'
 
-    return interpolate.interp1d(logT,
+    return interpolate.interp1d(T,
                                 Lambda, 
                                 fill_value = 0.0,
                                 )

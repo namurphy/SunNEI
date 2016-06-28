@@ -14,13 +14,14 @@ import pandas as pd
 
 from sunnei.core import func_index_te, func_dt_eigenval, func_solver_eigenval
 from sunnei.core import read_atomic_data, create_ChargeStates_dictionary, \
-    ReformatChargeStateList, EquilChargeStates
+    ReformatChargeStateList, EquilChargeStates, get_cooling_function
 
 # Definining constants
 
 RSun = 6.957e5    # radius of the Sun in kilometers
 gamma = 5.0/3.0   # ratio of specific heats
 gamm1 = gamma-1.0 # 
+kB = 1.38e-16     # Boltman constant in ergs per Kelvin
 
 # This pandas series allows a shortcut to finding the atomic number of
 # an element.  For example, AtomicNumbers['Fe'] will return 26.  The
@@ -39,20 +40,22 @@ AtomicNumbers = pd.Series(np.arange(28)+1,
 
 He_per_H = 0.1 
 
+
 def cmeheat_track_plasma(
     initial_height       = 0.1,     # in solar radii
     final_height         = 5.0,     # height to output charge states
     log_initial_temp     = 6.0,     # logarithm of initial temperature in K
-    log_initial_dens     = 10.0,    # number density in cm^-3
+    log_initial_dens     = 8.5,     # number density in cm^-3
     vfinal               = 500.0,   # km/s
     vscaletime           = 1800.0,  # s
-    ExpansionExponent    = -2.5,    # dimensionless
+    ExpansionExponent    = -2.4,    # dimensionless
     floor_log_temp       = 4.0,     # logarithm of floor temperature in K
     safety_factor = 1.0,            # multiplicative factor for time step
     elements = ['H', 'He', 'C',     # elements to be modeled
                 'N', 'O', 'Ne',
                 'Mg', 'Si', 'S', 
                 'Ar', 'Ca', 'Fe', ],
+    RadiativeCooling = True,
     screen_output=True,
     quicklook=True,
     barplot=True,
@@ -65,7 +68,7 @@ def cmeheat_track_plasma(
     Example
 
     output = sunnei.cmeheat_track_plasma(log_initial_temp=6.4, 
-                                        log_initial_dens=9.4,
+                                        log_initial_dens=8.6,
                                         vfinal=2500.0,
                                         ExpansionExponent=-2.5)
     
@@ -83,7 +86,11 @@ def cmeheat_track_plasma(
 
         log_initial_dens: the logarithm of the initial number density
         of hydrogen (both neutral and ionized).  If initial_height is
-        changed, then this should be changed accordingly.
+        changed, then this should be changed accordingly.  This will
+        often be between 8.0 and 9.0 (perhaps 7.5 to 9.5) for
+        initial_height = 0.10 for plasma at MK temperatures.  For
+        filament/prominence plasma at temperatures of order 0.1 MK,
+        log_initial_dens could be of order 10.5.
 
         vfinal: the final velocity of the blob, in km/s.
 
@@ -113,6 +120,10 @@ def cmeheat_track_plasma(
         for how the time step is calculated.  For high quality runs,
         use a safety_factor of perhaps 0.3.  For practice runs, you
         may use a safety factor of 2 or 3 to save computational time.
+
+        RadiativeCooling: Use the radiative cooling curve provided by
+        John Raymond.  Note that the heating time becomes incredibly
+        short for high density plasma (log_initial_dens > 10.0).
 
         screen_output: set to True to print out information on input
         parameters, plasma parameters over time, and initial/final
@@ -159,7 +170,7 @@ def cmeheat_track_plasma(
         elements, floor_log_temp, and safety_factor
 
     Remaining tasks
-        -Include radiative losses
+        -Double check radiative losses
         -Include ionization energy
         -Include different heating mechanisms
         -Include observational predictions (different program?)
@@ -178,6 +189,10 @@ def cmeheat_track_plasma(
 
     assert vfinal >= 50.0 and vfinal <= 5000.0, \
         'Need vfinal between 50.0 and 5000.0 km/s (from 250 to 2500 km/s is best)'
+
+    if RadiativeCooling:
+        assert floor_log_temp >= 4.0, \
+            'If RadiativeCooling==True, then floor_log_temp must be at least 4.0'
     
     assert log_initial_temp >= 3.6 and log_initial_temp <= 8.0, \
         'Need log_initial_temp between 3.6 and 8.0 (from 4.6 to 7.0 is best)'
@@ -201,6 +216,7 @@ def cmeheat_track_plasma(
     assert safety_factor > 0 and safety_factor <= 25, \
         'Need safety_factor to be a scalar between 0 and 25 (usually between 0.1 and 2)'
 
+
     # Read in the atomic data to be used for the non-equilibrium
     # ionization calculations.
 
@@ -217,7 +233,7 @@ def cmeheat_track_plasma(
     # Estimate the maximum number of steps needed to complete the
     # simulation.
 
-    max_steps = np.int64(12.0/(safety_factor*logTres))
+    max_steps = np.int64(15.0/(safety_factor*logTres))
 
     # Initialize arrays that will store physical conditions over the
     # course of the simulation
@@ -251,55 +267,24 @@ def cmeheat_track_plasma(
 
     final_time = find_time_for_height(final_height,vfinal,vscaletime,initial_height)
 
+    # Get the interpolation function for radiative cooling
+
+    Lambda = get_cooling_function()
+
     # The time loop to calculate how the charge state distributions
     # change as the plasma blob moves away from the Sun.
 
     i = 1
+    dt = None
 
     while (i <= max_steps):
         
-        # Adjust the time step [turn this into a separate function?]
+        # Adjust the time step
 
-        if i==1:
-            # Pick the first time step as a fraction of the
-            # acceleration time scale
-            dt_vs = vscaletime/200.0
-            dt = dt_vs
-        elif i>1 and i < max_steps-25:
-            logTdiff = np.abs(np.log10(temperature[i-1])-np.log10(temperature[i-2]))
-            if logTdiff > 0:
-                # For most of the simulation, the difference in log T
-                # between time steps should be comparable to the log T
-                # resolution of the atomic data.
-                dt = dt * safety_factor * (logTres/logTdiff)
-                if time[i-1] <= (vscaletime/10.0) and dt > dt_vs:
-                    # At very early times when the velocity is really
-                    # slow, make sure that the time step does not
-                    # exceed 1% of vscaletime to prevent ridiculously
-                    # large time steps.
-                    dt = dt_vs
-            else:
-                # If the temperature reaches the floor value, then
-                # pick a time step based on how quickly the density is
-                # changing.
-                logdensdiff = np.abs(np.log10(density[i-1]) - \
-                                     np.log10(density[i-2]))
-                dt = dt * safety_factor * (0.1/logdensdiff)
-        elif i == max_steps-25:
-            # If the number of iterations is approaching the maximum
-            # number of time steps, then make dt be even for the remaining
-            # time steps.  This avoids the situation where the last time
-            # step becomes extremely long.
-            dt = (final_time - time[i-1])/(max_steps-i-1)
-
-        # Find the time step for the end of the simulation
-
-        if time[i-1] + dt > final_time or i==max_steps:
-            dt = final_time - time[i-1]
-            FinalStep = True
-        else:
-            FinalStep = False
-
+        dt, FinalStep = cmeheat_timestep(i, vscaletime, temperature,
+                                         density, time, final_time,
+                                         max_steps, safety_factor, logTres, 
+                                         dt, RadiativeCooling)
         time[i] = time[i-1] + dt
 
         # Determine the velocity and height using auxiliary functions
@@ -317,10 +302,20 @@ def cmeheat_track_plasma(
         # cooling.  We may later wish to include additional terms such
         # as radiative cooling, energy stored in ionization, and
         # different heating parameterizations.  Make sure that the
-        # temperature does not drop below a floor value.  
+        # temperature does not drop below a floor value.        
 
-        temperature[i] = temperature[i-1]*(density[i]/density[i-1])**gamm1
+        # The tem
 
+        if RadiativeCooling:
+            dT_rad = - dt * Lambda(temperature[i-1]) * \
+                (2.0/3.0)*density[i-1]*electron_density[i-1] / \
+                (kB * (density[i-1]*(1.0+He_per_H)+electron_density[i-1]))
+        else:
+            dT_rad = 0.0
+
+        temperature[i] = temperature[i-1]*(density[i]/density[i-1])**gamm1 + \
+            dT_rad
+               
         if temperature[i] < 10**floor_log_temp:
             temperature[i] = 10**floor_log_temp
 
@@ -435,6 +430,7 @@ def cmeheat_track_plasma(
         'elements':elements,
         'floor_log_temp':floor_log_temp,
         'safety_factor':safety_factor,
+        'RadiativeCooling':RadiativeCooling,
         }
 
     '''
@@ -492,7 +488,7 @@ def cmeheat_grid(
     vfinal_range = [500.0, 2000.0],
     vscaletime_range = [1800, 2400],
     log_temp_range = [5.0,7.0], 
-    log_dens_range =  [9.0,11.0],
+    log_dens_range =  [8.0,10.5],
     ExponentRange = [-3.0,-1.5], 
     nvel = 2,
     nvtime = 2,
@@ -501,12 +497,13 @@ def cmeheat_grid(
     nexp = 2,                       
     initial_height = 0.1,
     final_height = 10.0,
-    floor_log_temp=3.9,
+    floor_log_temp=4.0,
     safety_factor=1.0,
-    elements = ['H', 'He', 'C',     # elements to be modeled
+    elements = ['H', 'He', 'C',
                 'N', 'O', 'Ne',
                 'Mg', 'Si', 'S', 
                 'Ar', 'Ca', 'Fe', ],
+    RadiativeCooling=True,
     ):
     
     '''
@@ -515,20 +512,16 @@ def cmeheat_grid(
 
     The inputs log_temp_range, log_dens_range, vfinal_range,
     vscaletime_range, and ExponentRange are either scalars or
-    lists/arrays that contain information on the simulations to be 
+    lists/arrays that contain information on the simulations to be ....
 
     The following inputs specify the ranges of different parameters to
     be used in the grid of simulations.
 
-      vfinal_range:
-
-      vscaletime_range: 
-
-      log_temp_range:
-      
-      log_dens_range:
-
-      ExponentRange:
+      vfinal_range: Final velocities in km/s
+      vscaletime_range: Velocity scale times in seconds
+      log_temp_range: Logarithms of initial temperatures in K
+      log_dens_range: Logarithms of initial densities in particles per cm^3
+      ExponentRange: Expansion exponents
 
     The following inputs specify the number of different parameters to
     be included in the grid of simulations.  These numbers are used
@@ -677,6 +670,7 @@ def cmeheat_grid(
                             screen_output=False,
                             quicklook=False,
                             barplot=False,
+                            RadiativeCooling=RadiativeCooling,
                             )
                         
                         # Add this simulation's output to the list of
@@ -729,6 +723,62 @@ def electron_density_factor(ChargeStates, He_per_H=0.1):
     ratio = ChargeStates['H'][1] + He_per_H*(ChargeStates['He'][1] + 2*ChargeStates['He'][2])
     assert ratio > 0 and ratio <= 1.0 + 2.0*He_per_H, 'Returning an invalid electron density factor: '+str(ratio)
     return ratio
+
+def cmeheat_timestep(i, vscaletime, temperature, density, time, final_time,
+                     max_steps, safety_factor, logTres, dt, RadiativeCooling):
+
+    if RadiativeCooling and density[i-1]>9.6:
+        dt_vs = safety_factor*vscaletime/200.0
+    else:
+        dt_vs = safety_factor*vscaletime/100.0
+
+    if i==1:
+            # Pick the first time step as a fraction of the
+            # acceleration time scale
+        dt = dt_vs
+    elif i>1 and i < max_steps-25:
+        logTdiff = np.abs(np.log10(temperature[i-1])-np.log10(temperature[i-2]))
+        if logTdiff > 0:
+            # For most of the simulation, the difference in log T
+            # between time steps should be comparable to the log T
+            # resolution of the atomic data.
+            dt = dt * safety_factor * (logTres/logTdiff)
+            if time[i-1] <= (vscaletime/10.0) and dt > dt_vs:
+                # At very early times when the velocity is really
+                # slow, make sure that the time step does not exceed a
+                # fraction of vscaletime to prevent ridiculously large
+                # time steps.
+                dt = dt_vs
+        else:
+                # If the temperature reaches the floor value, then
+                # pick a time step based on how quickly the density is
+                # changing.
+            logdensdiff = np.abs(np.log10(density[i-1]) - \
+                                     np.log10(density[i-2]))
+            if density[i-1] >= 10.0:
+                dt = dt * safety_factor * (0.005/logdensdiff)
+            elif density[i-1] >= 9.0:
+                dt = dt * safety_factor * (0.01/logdensdiff)
+            else:
+                dt = dt * safety_factor * (0.04/logdensdiff)
+    elif i == max_steps-25:
+            # If the number of iterations is approaching the maximum
+            # number of time steps, then make dt be even for the remaining
+            # time steps.  This avoids the situation where the last time
+            # step becomes extremely long.
+        dt = (final_time - time[i-1])/(max_steps-i-1)
+        
+        # Find the time step for the end of the simulation
+
+    if time[i-1] + dt > final_time or i==max_steps:
+        dt = final_time - time[i-1]
+        FinalStep = True
+    else:
+        FinalStep = False
+
+    assert dt>0, 'Problem with dt: not returning nonnegative value'
+
+    return (dt, FinalStep)
 
 def print_screen_output(out):
     '''
@@ -875,19 +925,26 @@ def cmeheat_quicklook(output,
                                       output['density']])),
                      ])
         elif i == 3:
-            ax.plot(x,
-                    np.log10(output['temperature']))
+            ax.plot(x, np.log10(output['temperature']), label='With radiative cooling')
             ax.set_ylabel('Log temperature (K)', fontsize=fontsize_labels)
             ax.set_title('Temperature',fontsize=fontsize_title)
             ax.axis([x[0],x[-1],
-                    np.min( np.log10(output['temperature'])-0.02 ),
+                    np.min( np.log10(output['temperature'])-0.03 ),
                     np.max( np.log10(output['temperature']) )])
-
-    # Plotting style preliminaries for second set of plots
+            # For cases with radiative cooling, include a line
+            # representing what the temperature would be in the case
+            # of just adiabatic expansion
+            if output['RadiativeCooling']:
+                temperature_adiabatic = output['temperature'][0] * \
+                    (output['density']/output['density'][0])**gamm1
+                ax.plot(x, 
+                        np.log10(temperature_adiabatic),
+                        linestyle=':', label='Adiabatic (for comparison)', color='red')
+                ax.legend(loc='best', fontsize=fontsize_legend, handlelength=3)
+# Plotting style preliminaries for second set of plots
 
     # Choose a set of linestyles to be cycled around
 
-#    styles = ['-']
     styles = ['-', '-.', '--',]
 
     # Make sure the lines are thick enough if there are dots and/or dashes

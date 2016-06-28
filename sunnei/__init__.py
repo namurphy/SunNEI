@@ -7,7 +7,8 @@ from .core import \
     func_solver_eigenval, \
     create_ChargeStates_dictionary, \
     ReformatChargeStateList, \
-    EquilChargeStates
+    EquilChargeStates, \
+    get_cooling_function
 
 from .tests import test_read_atomic_data, \
     test_create_ChargeStates_dictionary

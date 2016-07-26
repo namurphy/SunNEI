@@ -173,6 +173,7 @@ def cmeheat_track_plasma(
         -Double check radiative losses
         -Include ionization energy
         -Include different heating mechanisms
+        -Account for the amount of heating/radiative cooling per gram
         -Include observational predictions (different program?)
         -Use photoionization to set lowest temperature somehow?
     '''
@@ -180,21 +181,21 @@ def cmeheat_track_plasma(
     # Check to make sure that realistic values for the inputs are
     # being used.  Suggest appropriate ranges, if needed.
  
-    assert initial_height >= 0.01 and initial_height <= 0.5, \
+    assert 0.01 <= initial_height <= 0.5, \
         'Choose an initial height between 0.01 and 0.5 RSun'+\
         '(from 0.05 to 0.1 is best)'
 
     assert initial_height < final_height, \
         'Need initial_height < final_height'
 
-    assert vfinal >= 50.0 and vfinal <= 5000.0, \
+    assert 50.0 <= vfinal <= 5000.0, \
         'Need vfinal between 50.0 and 5000.0 km/s (from 250 to 2500 km/s is best)'
 
     if RadiativeCooling:
         assert floor_log_temp >= 4.0, \
             'If RadiativeCooling==True, then floor_log_temp must be at least 4.0'
     
-    assert log_initial_temp >= 3.6 and log_initial_temp <= 8.0, \
+    assert 4.0 <= log_initial_temp <= 8.0, \
         'Need log_initial_temp between 3.6 and 8.0 (from 4.6 to 7.0 is best)'
     
     assert elements.__contains__('H'), \
@@ -203,17 +204,21 @@ def cmeheat_track_plasma(
     assert elements.__contains__('He'), \
         'The elements list must include He to calculate electron density'
     
-    assert ExpansionExponent>=-4.5 and ExpansionExponent<=-0.5, \
+    assert -4.5 <= ExpansionExponent <= -0.5, \
         'Need ExpansionExponent between -4.5 and -0.5 (usually between -3.0 and -2.0)'
     
     assert quicklook == True or quicklook == False or \
         quicklook.endswith('.pdf'), \
         'Need quicklook to be True or False or a string ending in .pdf'
     
+    assert barplot == True or barplot == False or \
+        barplot.endswith('.pdf'), \
+        'Need barplot to be True or False or a string ending in .pdf'
+
     assert log_initial_temp>=floor_log_temp, \
         'Need log_initial_temp >= floor_log_temp'
 
-    assert safety_factor > 0 and safety_factor <= 25, \
+    assert 0 < safety_factor <= 25, \
         'Need safety_factor to be a scalar between 0 and 25 (usually between 0.1 and 2)'
 
 
@@ -550,7 +555,7 @@ def cmeheat_grid(
     assert np.size(initial_height)==1, \
         'Need initial_height to be a scalar'
 
-    assert np.size(final_height), \
+    assert np.size(final_height)==1, \
         'Need final_height to be a scalar'
 
     assert np.size(safety_factor)==1, \
@@ -719,9 +724,10 @@ def electron_density_factor(ChargeStates, He_per_H=0.1):
     ChargeStates dictionary, and He_per_H is the number of Helium
     atoms divided by the number of Hydrogen atoms.
     '''
-    assert He_per_H >= 0 and He_per_H <= 0.3, 'Need He_per_H between 0 and 0.3 to be realistic'
+    assert 0 <= He_per_H <= 0.2, 'Need He_per_H between 0 and 0.2 to be realistic'
     ratio = ChargeStates['H'][1] + He_per_H*(ChargeStates['He'][1] + 2*ChargeStates['He'][2])
-    assert ratio > 0 and ratio <= 1.0 + 2.0*He_per_H, 'Returning an invalid electron density factor: '+str(ratio)
+    assert 0 < ratio <= 1.0 + 2.0*He_per_H, \
+        'Returning an invalid electron density factor: '+str(ratio)
     return ratio
 
 def cmeheat_timestep(i, vscaletime, temperature, density, time, final_time,
@@ -877,7 +883,7 @@ def cmeheat_quicklook(output,
 
     if xaxis[0]=='h':
         x = output['height']
-        xlabel = 'Height (Solar Radii)'
+        xlabel = 'Height above photosphere (Solar Radii)'
     elif xaxis[0]=='t':
         x = output['time']/3600.0
         xlabel = 'Time (hours)'
@@ -899,7 +905,7 @@ def cmeheat_quicklook(output,
         if i == 0:
             ax.plot(output['time']/3600.0, output['height'])
             ax.set_ylabel('Height (solar radii)', fontsize=fontsize_labels)
-            ax.set_title('Position',fontsize=fontsize_title)
+            ax.set_title('Height above photosphere',fontsize=fontsize_title)
             ax.axis([output['time'][0]/3600.0,output['time'][-1]/3600.0,
                      0.0, output['final_height']])
             ax.set_xlabel('Time (hours)', fontsize=fontsize_labels)
@@ -1012,7 +1018,7 @@ def cmeheat_quicklook(output,
             
         ax.axis([x[0],x[-1],0.0,1.00])
         ax.set_xlabel(xlabel,fontsize=fontsize_labels)
-        ax.set_ylabel('Ionization Fractions',fontsize=fontsize_labels)
+        ax.set_ylabel('Ion Fractions',fontsize=fontsize_labels)
         ax.set_title('Charge States for '+element,fontsize=fontsize_title)
         ax.tick_params(axis='both', labelsize=fontsize_ticks)
         
@@ -1108,7 +1114,7 @@ def cmeheat_barplot(output,
         ax = fig.add_subplot(nxplots,nyplots,i+1)
 
         ax.set_title(elem, fontsize=fontsize_title)
-        ax.set_ylabel('Ionization fractions', fontsize=fontsize_labels)
+        ax.set_ylabel('Ion Fractions', fontsize=fontsize_labels)
         if nxplots==1 and nyplots==1:
             ax.set_xlabel('Charge States', fontsize=fontsize_labels)
         ax.tick_params(axis='both', labelsize=fontsize_ticks)
@@ -1168,6 +1174,8 @@ def cmeheat_barplot(output,
                       borderaxespad=0.66,
                       )
         i = i+1
+
+#    fig.suptitle('Blah')
 
     fig.tight_layout(pad=0.6)
 
